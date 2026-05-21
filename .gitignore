@@ -1,0 +1,6 @@
+.env
+*.log
+error_log
+api/error_log
+downloads/
+.DS_Store

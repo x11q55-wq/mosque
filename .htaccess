@@ -1,0 +1,123 @@
+# ════════════════════════════════════════════════════════════
+#  .htaccess — جمعية العناية بالمساجد
+#  النسخة الآمنة مع حماية الملفات الحساسة
+#  تاريخ الإصلاح: 2026
+# ════════════════════════════════════════════════════════════
+
+Options -Indexes
+Options -MultiViews
+
+# ── تفعيل محرك إعادة التوجيه ─────────────────────────────
+RewriteEngine On
+RewriteBase /mosque/
+
+# ── رؤوس الأمان ───────────────────────────────────────────
+<IfModule mod_headers.c>
+    # منع MIME Type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    # منع تضمين الموقع في iframe من مواقع أخرى
+    Header always set X-Frame-Options "SAMEORIGIN"
+    # تفعيل XSS Protection للمتصفحات القديمة
+    Header always set X-XSS-Protection "1; mode=block"
+    # إخفاء إصدار الخادم
+    Header always unset X-Powered-By
+    Header always unset Server
+    # Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ════════════════════════════════════════════════════════════
+#  حماية الملفات والمجلدات الحساسة
+# ════════════════════════════════════════════════════════════
+
+# ── منع الوصول لمجلد config ──────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteRule ^config/ - [F,L]
+    RewriteRule ^logs/ - [F,L]
+    RewriteRule ^\.env - [F,L]
+</IfModule>
+
+# ── منع الوصول المباشر لملفات PHP الحساسة ────────────────
+<FilesMatch "^(database|helpers)\.php$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# ── منع الوصول لملفات الإعداد والنسخ الاحتياطية ──────────
+<FilesMatch "\.(env|sql|log|bak|backup|conf|ini|sh|git)$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# ── منع الوصول للملفات المخفية (تبدأ بنقطة) ─────────────
+<FilesMatch "^\.">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# ── السماح بـ .htaccess نفسه ─────────────────────────────
+<Files ".htaccess">
+    Order allow,deny
+    Allow from all
+</Files>
+
+# ── حماية ملف autotest.php ────────────────────────────────
+# (احذف هذا الملف من الاستضافة بعد الانتهاء من الفحص)
+<Files "autotest.php">
+    Order deny,allow
+    Deny from all
+</Files>
+
+# ════════════════════════════════════════════════════════════
+#  ضغط Gzip لتسريع التحميل
+# ════════════════════════════════════════════════════════════
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript
+    AddOutputFilterByType DEFLATE application/json text/plain text/xml
+    AddOutputFilterByType DEFLATE image/svg+xml font/woff font/woff2
+</IfModule>
+
+# ════════════════════════════════════════════════════════════
+#  Cache Control للملفات الثابتة
+# ════════════════════════════════════════════════════════════
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+# ════════════════════════════════════════════════════════════
+#  إعادة توجيه جميع الطلبات لـ index.php
+# ════════════════════════════════════════════════════════════
+<IfModule mod_rewrite.c>
+    # تجاهل الملفات الموجودة فعلاً
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # استثناء مجلد uploads من إعادة التوجيه
+    RewriteCond %{REQUEST_URI} !^/mosque/uploads/
+    RewriteCond %{REQUEST_URI} !^/mosque/storage/
+
+    # توجيه كل شيء لـ index.php
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# ════════════════════════════════════════════════════════════
+#  حماية مجلد uploads من تنفيذ PHP
+# ════════════════════════════════════════════════════════════
+<IfModule mod_rewrite.c>
+    RewriteRule ^uploads/.*\.php$ - [F,L]
+    RewriteRule ^storage/.*\.php$ - [F,L]
+</IfModule>
+
+# منع تنفيذ PHP في مجلد الرفع بطريقة بديلة
+<FilesMatch "\.php$">
+    <If "%{REQUEST_URI} =~ m#^/mosque/(uploads|storage)/#">
+        Order deny,allow
+        Deny from all
+    </If>
+</FilesMatch>
