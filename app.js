@@ -3571,6 +3571,52 @@ function submitAddUser(){
   }).catch(function(){ toast('خطأ في الاتصال'); });
 }
 
+
+/* ════════════ CMS SURVEYS PANEL OVERRIDE ════════════ */
+function pSurveys(){
+  if(!S.surveys) S.surveys=[];
+  if(!S.analysisReports) S.analysisReports=[];
+  if(!S.boardDecisions) S.boardDecisions=[];
+  var surveyOptions='<option value="">— اختر الاستطلاع —</option>'+(S.surveys||[]).map(function(sv){return '<option value="'+esc(sv.title)+'">'+esc(sv.title)+'</option>';}).join('');
+  var h='';
+  h+='<div class="sh">📋 إدارة الاستطلاعات</div>';
+  h+='<div class="note">من هنا تنشئ الاستطلاعات وأسئلتها، ثم تضيف تقارير التحليل وتوصيات المجلس المرتبطة بكل استطلاع.</div>';
+
+  h+='<div class="cms-work-grid">';
+  h+='<div class="cms-work-card"><div class="cms-work-title">📋 الاستطلاعات والأسئلة</div>';
+  h+=(S.surveys||[]).map(function(sv,i){
+    return '<div class="ibox"><div class="ibox-hd" onclick="toggleIbox(this)"><span class="ibox-t">'+esc(sv.icon||'📋')+' '+esc((sv.title||'استطلاع').substring(0,28))+'</span><div style="display:flex;gap:4px;align-items:center;"><span class="ibox-arrow">▼</span><button class="delbtn" onclick="event.stopPropagation();svDel('+i+')">🗑</button></div></div>'+
+    '<div class="ibox-body"><div class="g2"><div class="fg"><label>عنوان الاستطلاع</label><input class="is" value="'+esc(sv.title||'')+'" oninput="S.surveys['+i+'].title=this.value;renderSurveyList()"></div><div class="fg"><label>الحالة</label><select class="is" onchange="S.surveys['+i+'].status=this.value;renderSurveyList()"><option value="open" '+(sv.status==='open'?'selected':'')+'>مفتوح</option><option value="closed" '+(sv.status==='closed'?'selected':'')+'>مغلق</option></select></div></div>'+
+    '<div class="fg"><label>وصف الاستطلاع</label><input class="is" value="'+esc(sv.desc||'')+'" oninput="S.surveys['+i+'].desc=this.value;renderSurveyList()"></div>'+
+    '<div class="pnl-section-title">الأسئلة ('+((sv.questions||[]).length)+')</div>'+
+    (sv.questions||[]).map(function(q,j){return '<div class="cms-q-row"><input class="is" value="'+esc(q.text||'')+'" oninput="S.surveys['+i+'].questions['+j+'].text=this.value"><select class="is" onchange="svChangeQType('+i+','+j+',this.value)">'+qTypes.map(function(t){return '<option value="'+t.v+'" '+(q.type===t.v?'selected':'')+'>'+t.l+'</option>';}).join('')+'</select><button class="delbtn" onclick="S.surveys['+i+'].questions.splice('+j+',1);G(\'surveys\')">🗑</button></div>'+
+      ((q.type!=='text'&&q.type!=='file')?'<textarea class="is" rows="2" placeholder="خيارات السؤال - كل خيار في سطر" oninput="S.surveys['+i+'].questions['+j+'].opts=this.value.split(/\\n/).filter(Boolean)">'+esc((q.opts||[]).join('\n'))+'</textarea>':'');}).join('')+
+    '<button class="abtn" onclick="svAddQ('+i+')">+ إضافة سؤال</button></div></div>';
+  }).join('');
+  h+='<button class="abtn" onclick="svAdd()">+ إنشاء استطلاع جديد</button></div>';
+
+  h+='<div class="cms-work-card"><div class="cms-work-title">🔬 تقارير التحليل</div><div class="note">اختر الاستطلاع ثم أضف نص التحليل أو مرفقات PDF/صور لتظهر في تبويب تقارير التحليل بالموقع.</div>';
+  h+=(S.analysisReports||[]).map(function(r,i){var files=r.files||r.pdfs||[];return '<div class="ibox open"><div class="ibox-hd"><span class="ibox-t">🔬 '+esc(r.title||'تقرير تحليل')+'</span><button class="delbtn" onclick="S.analysisReports.splice('+i+',1);renderAnalysis();G(\'surveys\')">🗑</button></div><div class="ibox-body" style="display:block">'+
+    '<div class="g2"><div class="fg"><label>الاستطلاع المرتبط</label><select class="is" onchange="S.analysisReports['+i+'].survey=this.value;renderAnalysis()">'+surveyOptions.replace('value="'+esc(r.survey||'')+'"','value="'+esc(r.survey||'')+'" selected')+'</select></div><div class="fg"><label>التاريخ</label><input class="is" value="'+esc(r.date||'')+'" oninput="S.analysisReports['+i+'].date=this.value;renderAnalysis()"></div></div>'+
+    '<div class="fg"><label>عنوان التقرير</label><input class="is" value="'+esc(r.title||'')+'" oninput="S.analysisReports['+i+'].title=this.value;renderAnalysis()"></div>'+
+    '<div class="fg"><label>نص التحليل</label><textarea class="is" rows="4" oninput="S.analysisReports['+i+'].text=this.value;renderAnalysis()">'+esc(r.text||'')+'</textarea></div>'+
+    files.map(function(f,k){return '<div class="cms-file-row"><a href="'+esc(safeUrl(f.url))+'" target="_blank" rel="noopener">'+fileIconByName(f.name)+' '+esc(f.name||'مرفق')+'</a><button class="delbtn" onclick="(S.analysisReports['+i+'].files||S.analysisReports['+i+'].pdfs).splice('+k+',1);G(\'surveys\');renderAnalysis()">✕</button></div>';}).join('')+
+    '<button class="abtn" onclick="arUploadPdf('+i+')">📎 رفع PDF أو صورة</button></div></div>';}).join('');
+  h+='<button class="abtn" onclick="arAdd()">+ إضافة تقرير تحليل</button></div>';
+
+  h+='<div class="cms-work-card"><div class="cms-work-title">🏛 توصيات مجلس الإدارة</div><div class="note">كل توصية يجب ربطها باستطلاع حتى يعرف الزائر لأي استطلاع تتبع.</div>';
+  h+=(S.boardDecisions||[]).map(function(d,i){return '<div class="ibox open"><div class="ibox-hd"><span class="ibox-t">🏛 '+esc(d.title||'توصية')+'</span><button class="delbtn" onclick="S.boardDecisions.splice('+i+',1);renderBoard();G(\'surveys\')">🗑</button></div><div class="ibox-body" style="display:block">'+
+    '<div class="g2"><div class="fg"><label>الاستطلاع المرتبط</label><select class="is" onchange="S.boardDecisions['+i+'].survey=this.value;renderBoard()">'+surveyOptions.replace('value="'+esc(d.survey||'')+'"','value="'+esc(d.survey||'')+'" selected')+'</select></div><div class="fg"><label>التاريخ</label><input class="is" value="'+esc(d.date||'')+'" oninput="S.boardDecisions['+i+'].date=this.value;renderBoard()"></div></div>'+
+    '<div class="fg"><label>عنوان التوصية</label><input class="is" value="'+esc(d.title||'')+'" oninput="S.boardDecisions['+i+'].title=this.value;renderBoard()"></div>'+
+    '<div class="fg"><label>نص التوصية</label><textarea class="is" rows="4" oninput="S.boardDecisions['+i+'].body=this.value;renderBoard()">'+esc(d.body||'')+'</textarea></div>'+
+    (d.files||[]).map(function(f,k){return '<div class="cms-file-row"><a href="'+esc(safeUrl(f.url))+'" target="_blank" rel="noopener">📄 '+esc(f.name||'ملف توصية')+'</a><button class="delbtn" onclick="S.boardDecisions['+i+'].files.splice('+k+',1);G(\'surveys\');renderBoard()">✕</button></div>';}).join('')+
+    '<button class="abtn" onclick="bdUploadFile('+i+')">📎 رفع PDF للتوصية</button></div></div>';}).join('');
+  h+='<button class="abtn" onclick="bdAdd()">+ إضافة توصية</button></div>';
+  h+='</div>';
+  h+='<button class="sbtn" onclick="saveState(true)">✓ حفظ كل تغييرات الاستطلاعات</button>';
+  return h;
+}
+
 /* ════════════ INIT ════════════ */
 /* إغلاق اللوحة فوراً إذا لم تكن مفتوحة */
 (function(){
