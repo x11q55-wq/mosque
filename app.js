@@ -2347,7 +2347,7 @@ function _renderSt(tab){
   } else if(_cmsTab==='custompages'){
     ct.innerHTML=pCustPages();
   } else if(_cmsTab==='surveys'){
-    ct.innerHTML=pSurveysNew();
+    ct.innerHTML=(typeof pSurveysV2==='function'?pSurveysV2():pSurveysNew());
   } else if(_cmsTab==='users'){
     ct.innerHTML=pCmsUsers();
   } else {
@@ -3627,27 +3627,40 @@ function cmsSurveySelect(current, onchange){
   (S.surveys||[]).forEach(function(sv){var title=String(sv.title||'');h+='<option value="'+esc(title)+'" '+(title===current?'selected':'')+'>'+esc(title)+'</option>';});
   return h+'</select>';
 }
+function cmsIconChoices(){
+  return ['🕌','💧','❄️','👥','🏗','📍','💡','📚','🤝','📊','🏆','⭐','✅','🌿','🔧','🧹','🎯','📈','📝','🚰','🧊','🛠','📦','🕋'];
+}
 function pAchievV2(){
   if(!S.achiev) S.achiev=[];
+  var icons=cmsIconChoices();
   var h='';
   h+='<div class="sh">🏆 الإنجازات ('+S.achiev.length+')</div>';
-  h+='<div class="note">هذا التبويب يعدل بطاقات قسم إنجازاتنا في أرقام في الصفحة الرئيسية. العرض في الموقع يبقى أفقيًا بجانب بعض كما كان.</div>';
+  h+='<div class="note">كل منجز في قائمة مستقلة. اضغط على القائمة لفتح التفاصيل، واختر الأيقونة المناسبة من الخيارات.</div>';
   h+='<div class="cms-ach-list">';
   S.achiev.forEach(function(a,i){
-    h+='<div class="cms-ach-card">';
-    h+='<div class="cms-ach-head"><div><strong>'+esc(a.icon||'🏆')+' '+esc(a.label||'منجز')+'</strong><div style="font-size:11px;color:#6b7280">بطاقة رقم '+(i+1)+'</div></div><button class="delbtn" onclick="S.achiev.splice('+i+',1);renderAchiev();G(\'achiev\')">🗑</button></div>';
-    h+='<div class="pnl-grid4">';
-    h+='<div class="pnl-field"><label>الأيقونة</label><input class="is" value="'+esc(a.icon||'')+'" oninput="S.achiev['+i+'].icon=this.value;renderAchiev()"></div>';
+    h+='<div class="pnl-card">';
+    h+='<div class="pnl-card-hdr">';
+    h+='<div class="pnl-card-icon" style="background:#e8f2ec">'+esc(a.icon||'🏆')+'</div>';
+    h+='<div class="pnl-card-info"><div class="pnl-card-title">'+esc(a.label||'منجز')+'</div><div class="pnl-card-sub">'+esc(a.val||'0')+' '+esc(a.unit||'')+'</div></div>';
+    h+='<div class="pnl-card-actions"><span class="pnl-arrow">▼</span><button class="delbtn" onclick="event.stopPropagation();S.achiev.splice('+i+',1);renderAchiev();_renderSt(\'achiev\')">🗑</button></div>';
+    h+='</div>';
+    h+='<div class="pnl-card-body">';
+    h+='<div class="pnl-field"><label>اختر الأيقونة</label><div class="cms-icon-grid">';
+    icons.forEach(function(ic){h+='<button type="button" class="cms-icon-choice '+(ic===(a.icon||'')?'on':'')+'" onclick="S.achiev['+i+'].icon=\''+ic+'\';renderAchiev();_renderSt(\'achiev\')">'+ic+'</button>';});
+    h+='</div></div>';
+    h+='<div class="pnl-grid2">';
     h+='<div class="pnl-field"><label>اسم المنجز</label><input class="is" value="'+esc(a.label||'')+'" oninput="S.achiev['+i+'].label=this.value;renderAchiev()"></div>';
     h+='<div class="pnl-field"><label>الرقم</label><input class="is" value="'+esc(a.val||'')+'" oninput="S.achiev['+i+'].val=this.value;renderAchiev()"></div>';
-    h+='<div class="pnl-field"><label>الوحدة</label><input class="is" value="'+esc(a.unit||'')+'" oninput="S.achiev['+i+'].unit=this.value;renderAchiev()"></div>';
+    h+='</div>';
+    h+='<div class="pnl-field"><label>الوحدة أو الوصف المختصر</label><input class="is" value="'+esc(a.unit||'')+'" oninput="S.achiev['+i+'].unit=this.value;renderAchiev()"></div>';
     h+='</div></div>';
   });
   h+='</div>';
-  h+='<button class="abtn" onclick="S.achiev.push({icon:\'🏆\',label:\'منجز جديد\',val:\'0\',unit:\'\'});renderAchiev();G(\'achiev\')">+ إضافة منجز</button>';
+  h+='<button class="abtn" onclick="S.achiev.push({icon:\'🏆\',label:\'منجز جديد\',val:\'0\',unit:\'\'});renderAchiev();_renderSt(\'achiev\')">+ إضافة منجز</button>';
   h+='<button class="sbtn" onclick="saveState(true)">💾 حفظ الإنجازات</button>';
   return h;
 }
+
 function pSurveysV2(){
   if(!S.surveys) S.surveys=[]; if(!S.analysisReports) S.analysisReports=[]; if(!S.boardDecisions) S.boardDecisions=[];
   var h='';
