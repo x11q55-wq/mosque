@@ -81,7 +81,7 @@ const S = {
        {text:'مدى رضاك عن المحتوى المتاح',type:'likert',required:true,opts:['ضعيف','مقبول','جيد','ممتاز']},
      ]},
   ],
-  maintenance:{enabled:false,message:'الموقع تحت التطوير — سنعود قريباً',until:''},
+  maintenance:{enabled:false,message:'الموقع قيد التطوير — سنعود قريباً',until:''},
   cmsUsers:[],
   surveyResults:{total:847,complete:798,incomplete:49,avgTime:'4.2 دقيقة',sat:88,
     qRes:[

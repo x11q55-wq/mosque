@@ -31,7 +31,7 @@ if (!$is_cms_admin) {
                            ->execute([json_encode($ss_data, JSON_UNESCAPED_UNICODE)]);
                 } else {
                     // اعرض شاشة الصيانة من PHP مباشرة
-                    $maint_msg   = htmlspecialchars($maint['message'] ?? 'الموقع قيد الصيانة — سنعود قريباً');
+                    $maint_msg   = htmlspecialchars($maint['message'] ?? 'الموقع قيد التطوير — سنعود قريباً');
                     $maint_until = htmlspecialchars($maint['until'] ?? '');
                     http_response_code(503);
                     header('Retry-After: 3600');
@@ -41,12 +41,16 @@ if (!$is_cms_admin) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>الموقع قيد الصيانة</title>
+<title>الموقع قيد التطوير</title>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Tajawal',sans-serif;background:linear-gradient(135deg,#0f3d26,#1a5c38);min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff;direction:rtl}
-.box{text-align:center;padding:40px 20px;max-width:600px}
+.box{text-align:center;padding:40px 20px;max-width:620px}
+.brand{background:#fff;border:1px solid rgba(201,162,39,.35);border-radius:24px;padding:22px 32px 18px;text-align:center;box-shadow:0 12px 34px rgba(0,0,0,.18);width:min(280px,86vw);margin:0 auto 22px}
+.brand img{width:96px;height:96px;object-fit:contain;border-radius:18px;display:block;margin:0 auto 12px}
+.brand-name{font-size:16px;font-weight:800;color:#0f3d26;line-height:1.5}
+.brand-sub{font-size:10px;color:#9a7400;letter-spacing:2px;margin-top:3px}
 .icon{font-size:64px;margin-bottom:20px}
 h1{font-size:28px;font-weight:700;margin-bottom:12px}
 p{font-size:16px;color:rgba(255,255,255,.85);line-height:1.8;margin-bottom:28px}
@@ -58,8 +62,13 @@ p{font-size:16px;color:rgba(255,255,255,.85);line-height:1.8;margin-bottom:28px}
 </head>
 <body>
 <div class="box">
+  <div class="brand">
+    <img src="/mosque/assets/logo.jpg" alt="شعار جمعية العناية بالمساجد">
+    <div class="brand-name">جمعية العناية بالمساجد</div>
+    <div class="brand-sub">KSA MOSQUE CARE</div>
+  </div>
   <div class="icon">🔧</div>
-  <h1>الموقع قيد الصيانة</h1>
+  <h1>الموقع قيد التطوير</h1>
   <p>{$maint_msg}</p>
   <div class="cd" id="cd"></div>
 </div>

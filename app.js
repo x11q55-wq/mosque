@@ -372,7 +372,10 @@ function loadSurveyResults(svId){
     Object.keys(qStats).forEach(function(qt){
       var st=qStats[qt];var so=st.optsOrder.length?st.optsOrder:Object.keys(st.opts);
       h+='<div class="res-card"><div class="res-q">📊 '+esc(qt)+'</div>';
-      if(st.type==='text'||st.type==='file'){
+      if(st.type==='file'){
+        var fileCount=0;entries.forEach(function(e){var a=(e.entry_data||{})[qt];if(a)fileCount++;});
+        h+='<div class="privacy-note">🔒 تم استلام '+fileCount+' مرفق/مرفقات لهذا السؤال. حفاظًا على الخصوصية لا تظهر للزوار، ويمكن استعراضها من لوحة التحكم > الاستطلاعات > المرفقات.</div>';
+      } else if(st.type==='text'){
         h+='<div style="background:#f9fafb;border-radius:8px;padding:12px;max-height:260px;overflow-y:auto;">';
         entries.forEach(function(e){var a=(e.entry_data||{})[qt];if(a){h+='<div style="padding:8px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;align-items:flex-start;"><div style="flex:1;color:#374151;line-height:1.7;">'+renderEntryValue(a)+'</div>'+((typeof IS_ADMIN!=='undefined'&&IS_ADMIN)||getCmsToken()?'<button class="delbtn" title="حذف هذه الإجابة" onclick="deleteSurveyAnswer('+e.id+',\''+encodeURIComponent(qt)+'\',\''+svId+'\')">🗑</button>':'')+'</div>';}});
         h+='</div>';
@@ -3151,7 +3154,7 @@ function initMaintenance(){
   var cdEl    = document.getElementById('maint-countdown');
   if(overlay){
     overlay.classList.remove('hidden');
-    if(msgEl) msgEl.textContent = m.message||'الموقع تحت التطوير';
+    if(msgEl) msgEl.textContent = m.message||'الموقع قيد التطوير';
     if(m.until && cdEl){
       startCountdown(new Date(m.until), cdEl, overlay);
     } else if(cdEl){
@@ -3371,7 +3374,7 @@ function pMaintenance(){
 
   /* رسالة الصيانة */
   h += '<div class="pnl-field"><label>📢 رسالة تظهر للزوار</label>';
-  h += '<textarea class="is" id="maint-msg-input" style="min-height:80px;resize:vertical;" oninput="if(!S.maintenance)S.maintenance={};S.maintenance.message=this.value;">'+( m.message||'الموقع تحت التطوير — سنعود قريباً')+'</textarea></div>';
+  h += '<textarea class="is" id="maint-msg-input" style="min-height:80px;resize:vertical;" oninput="if(!S.maintenance)S.maintenance={};S.maintenance.message=this.value;">'+( m.message||'الموقع قيد التطوير — سنعود قريباً')+'</textarea></div>';
 
   /* التاريخ */
   h += '<div class="pnl-grid2">';
@@ -3387,8 +3390,8 @@ function pMaintenance(){
   h += '<div class="sh" style="margin-top:4px;">👁 معاينة شاشة الصيانة</div>';
   h += '<div style="background:linear-gradient(135deg,#0f3d26,#1a5c38);border-radius:12px;padding:36px 20px;text-align:center;color:#fff;">';
   h += '<div style="font-size:48px;margin-bottom:12px;">🔧</div>';
-  h += '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">الموقع قيد الصيانة</div>';
-  h += '<div style="font-size:14px;color:rgba(255,255,255,.8);margin-bottom:20px;">'+(m.message||'الموقع تحت التطوير — سنعود قريباً')+'</div>';
+  h += '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">الموقع قيد التطوير</div>';
+  h += '<div style="font-size:14px;color:rgba(255,255,255,.8);margin-bottom:20px;">'+(m.message||'الموقع قيد التطوير — سنعود قريباً')+'</div>';
   h += '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">';
   var labels=['شهر','يوم','ساعة','دقيقة','ثانية'];
   for(var li=0;li<5;li++){
@@ -3661,6 +3664,42 @@ function pAchievV2(){
   return h;
 }
 
+function collectEntryFiles(value, field, entry, survey){
+  var out=[];
+  var v=parseMaybeJson(value);
+  if(Array.isArray(v)){v.forEach(function(x){out=out.concat(collectEntryFiles(x,field,entry,survey));});return out;}
+  if(v&&typeof v==='object'){
+    var url=safeUrl(v.url||v.path||'');
+    if(url){out.push({entryId:entry.id,field:field,survey:survey,title:entry.form_label||survey,name:v.name||url.split('/').pop(),url:url,size:v.size||'',submitted_at:entry.submitted_at||''});}
+  }
+  return out;
+}
+function loadSurveyAttachmentsPanel(){
+  var box=document.getElementById('cms-survey-attachments-body');
+  if(!box) return;
+  var token=getCmsToken();
+  if(!token){box.innerHTML='<div class="empty-state">سجل الدخول أولاً لعرض مرفقات الزوار.</div>';return;}
+  var surveys=S.surveys||[];
+  if(!surveys.length){box.innerHTML='<div class="empty-state">لا توجد استطلاعات.</div>';return;}
+  box.innerHTML='<div class="empty-state">جارٍ تحميل المرفقات...</div>';
+  Promise.all(surveys.map(function(sv){
+    return fetch('/mosque/api/registration_entry.php?form_key='+encodeURIComponent('survey_'+sv.id)+'&per_page=9999',{headers:cmsAuthHeaders()})
+      .then(function(r){return r.json();}).then(function(res){return {sv:sv,entries:res.entries||[]};}).catch(function(){return {sv:sv,entries:[]};});
+  })).then(function(groups){
+    var h=''; var total=0;
+    groups.forEach(function(g){
+      var files=[];
+      g.entries.forEach(function(e){var d=e.entry_data||{};Object.keys(d).forEach(function(k){files=files.concat(collectEntryFiles(d[k],k,e,g.sv.title||('استطلاع '+g.sv.id)));});});
+      if(files.length){
+        total+=files.length;
+        h+='<div class="ibox open"><div class="ibox-hd"><span class="ibox-t">📎 '+esc(g.sv.title||'استطلاع')+' ('+files.length+')</span></div><div class="ibox-body" style="display:block">';
+        files.forEach(function(f){h+='<div class="cms-file-row"><div style="flex:1"><a href="'+esc(f.url)+'" target="_blank" rel="noopener">'+fileIconByName(f.name)+' '+esc(f.name)+'</a><div style="font-size:11px;color:#6b7280;margin-top:3px">السؤال: '+esc(f.field)+' · '+esc(f.submitted_at||'')+'</div></div><button class="delbtn" onclick="deleteSurveyAnswer('+f.entryId+',\''+encodeURIComponent(f.field)+'\',\''+g.sv.id+'\');setTimeout(loadSurveyAttachmentsPanel,600)">🗑</button></div>';});
+        h+='</div></div>';
+      }
+    });
+    box.innerHTML=total?h:'<div class="empty-state">لا توجد مرفقات زوار حتى الآن.</div>';
+  });
+}
 function pSurveysV2(){
   if(!S.surveys) S.surveys=[];
   if(!S.analysisReports) S.analysisReports=[];
@@ -3669,20 +3708,18 @@ function pSurveysV2(){
   var tabs=[
     {id:'surveys',icon:'📋',label:'الاستطلاعات'},
     {id:'reports',icon:'🔬',label:'التقارير'},
-    {id:'board',icon:'🏛',label:'التوصيات'}
+    {id:'board',icon:'🏛',label:'التوصيات'},
+    {id:'attachments',icon:'📎',label:'المرفقات'}
   ];
   var h='';
   h+='<div class="sh">📋 الاستطلاعات والتحليل والتوصيات</div>';
-  h+='<div class="note">اختر القسم المطلوب من التبويبات العلوية. كل تغيير يظهر في الموقع بعد الحفظ.</div>';
+  h+='<div class="note">اختر القسم المطلوب من التبويبات العلوية. مرفقات الزوار لا تظهر للزوار وتعرض فقط داخل تبويب المرفقات هنا.</div>';
   h+='<div class="cms-survey-tabs">';
-  tabs.forEach(function(t){
-    h+='<button class="cms-survey-tab '+(tab===t.id?'on':'')+'" onclick="window._surveyCmsTab=\''+t.id+'\';_renderSt(\'surveys\')">'+t.icon+' '+t.label+'</button>';
-  });
+  tabs.forEach(function(t){h+='<button class="cms-survey-tab '+(tab===t.id?'on':'')+'" onclick="window._surveyCmsTab=\''+t.id+'\';_renderSt(\'surveys\')">'+t.icon+' '+t.label+'</button>';});
   h+='</div>';
-
   if(tab==='surveys'){
     h+='<div class="cms-work-card"><div class="cms-work-title">📋 إدارة الاستطلاعات والأسئلة</div>';
-    h+='<div class="note">هنا تنشئ الاستطلاعات وأسئلتها. إذا كان السؤال من نوع رفع مرفق، سيظهر مرفق الزائر في نتائج الاستطلاع داخل الموقع/لوحة التحكم كرابط قابل للفتح.</div>';
+    h+='<div class="note">هنا تنشئ الاستطلاعات وأسئلتها وتحدد هل السؤال إلزامي أو اختياري.</div>';
     if(!S.surveys.length){h+='<div class="empty-state">لا توجد استطلاعات بعد</div>';}
     (S.surveys||[]).forEach(function(sv,i){
       h+='<div class="ibox"><div class="ibox-hd" onclick="toggleIbox(this)"><span class="ibox-t">'+esc(sv.icon||'📋')+' '+esc(sv.title||'استطلاع')+'</span><div style="display:flex;gap:6px;align-items:center"><span class="ibox-arrow">▼</span><button class="delbtn" onclick="event.stopPropagation();svDel('+i+')">🗑</button></div></div><div class="ibox-body">';
@@ -3691,48 +3728,39 @@ function pSurveysV2(){
       h+='<div class="pnl-section-title">الأسئلة ('+((sv.questions||[]).length)+')</div>';
       (sv.questions||[]).forEach(function(q,j){
         h+='<div class="cms-q-editor"><div class="cms-q-row"><input class="is" value="'+esc(q.text||'')+'" placeholder="نص السؤال" oninput="S.surveys['+i+'].questions['+j+'].text=this.value"><select class="is" onchange="svChangeQType('+i+','+j+',this.value)">'+qTypes.map(function(t){return '<option value="'+t.v+'" '+(q.type===t.v?'selected':'')+'>'+t.l+'</option>';}).join('')+'</select><button class="delbtn" onclick="S.surveys['+i+'].questions.splice('+j+',1);_renderSt(\'surveys\');renderSurveyList()">🗑</button></div>';
+        h+='<label class="cms-required-row"><input type="checkbox" '+(q.required?'checked':'')+' onchange="S.surveys['+i+'].questions['+j+'].required=this.checked;renderSurveyList()"> سؤال إلزامي الإجابة</label>';
         if(q.type!=='text'&&q.type!=='file') h+='<textarea class="is" rows="2" placeholder="خيارات السؤال - كل خيار في سطر" oninput="S.surveys['+i+'].questions['+j+'].opts=this.value.split(/\\n/).filter(Boolean)">'+esc((q.opts||[]).join('\n'))+'</textarea>';
-        if(q.type==='file') h+='<div class="note" style="margin-top:6px">مرفقات الزوار لهذا السؤال تظهر في تبويب النتائج والتحليل عند فتح نتائج هذا الاستطلاع.</div>';
+        if(q.type==='file') h+='<div class="note" style="margin-top:6px">مرفقات الزوار لهذا السؤال تظهر فقط في تبويب المرفقات داخل لوحة التحكم.</div>';
         h+='</div>';
       });
       h+='<button class="abtn" onclick="svAddQ('+i+')">+ إضافة سؤال</button></div></div>';
     });
-    h+='<button class="abtn" onclick="svAdd()">+ إنشاء استطلاع جديد</button>';
-    h+='</div>';
+    h+='<button class="abtn" onclick="svAdd()">+ إنشاء استطلاع جديد</button></div>';
   }
-
   if(tab==='reports'){
-    h+='<div class="cms-work-card"><div class="cms-work-title">🔬 تقارير التحليل</div>';
-    h+='<div class="note">أضف تقريرًا نصيًا أو مرفق PDF/صورة، واختر الاستطلاع المرتبط به. اترك الاختيار فارغًا إذا كان التقرير عامًا لكل الاستطلاعات.</div>';
+    h+='<div class="cms-work-card"><div class="cms-work-title">🔬 تقارير التحليل</div><div class="note">أضف تقريرًا نصيًا أو مرفق PDF/صورة، واختر الاستطلاع المرتبط به. اترك الاختيار فارغًا إذا كان التقرير عامًا لكل الاستطلاعات.</div>';
     if(!S.analysisReports.length){h+='<div class="empty-state">لا توجد تقارير تحليل بعد</div>';}
-    (S.analysisReports||[]).forEach(function(r,i){var files=r.files||r.pdfs||[];
-      h+='<div class="ibox"><div class="ibox-hd" onclick="toggleIbox(this)"><span class="ibox-t">🔬 '+esc(r.title||'تقرير تحليل')+'</span><div style="display:flex;gap:6px;align-items:center"><span class="ibox-arrow">▼</span><button class="delbtn" onclick="event.stopPropagation();S.analysisReports.splice('+i+',1);renderAnalysis();_renderSt(\'surveys\')">🗑</button></div></div><div class="ibox-body">';
+    (S.analysisReports||[]).forEach(function(r,i){var files=r.files||r.pdfs||[];h+='<div class="ibox"><div class="ibox-hd" onclick="toggleIbox(this)"><span class="ibox-t">🔬 '+esc(r.title||'تقرير تحليل')+'</span><div style="display:flex;gap:6px;align-items:center"><span class="ibox-arrow">▼</span><button class="delbtn" onclick="event.stopPropagation();S.analysisReports.splice('+i+',1);renderAnalysis();_renderSt(\'surveys\')">🗑</button></div></div><div class="ibox-body">';
       h+='<div class="pnl-grid2"><div class="pnl-field"><label>الاستطلاع المرتبط</label>'+cmsSurveySelect(r.survey,'S.analysisReports['+i+'].survey=this.value;renderAnalysis()')+'</div><div class="pnl-field"><label>التاريخ</label><input class="is" value="'+esc(r.date||'')+'" oninput="S.analysisReports['+i+'].date=this.value;renderAnalysis()"></div></div>';
-      h+='<div class="pnl-field"><label>عنوان التقرير</label><input class="is" value="'+esc(r.title||'')+'" oninput="S.analysisReports['+i+'].title=this.value;renderAnalysis()"></div>';
-      h+='<div class="pnl-field"><label>التحليل النصي الذي سيظهر في الموقع</label><textarea class="is" rows="5" placeholder="اكتب التحليل هنا..." oninput="S.analysisReports['+i+'].text=this.value;renderAnalysis()">'+esc(r.text||'')+'</textarea></div>';
+      h+='<div class="pnl-field"><label>عنوان التقرير</label><input class="is" value="'+esc(r.title||'')+'" oninput="S.analysisReports['+i+'].title=this.value;renderAnalysis()"></div><div class="pnl-field"><label>التحليل النصي الذي سيظهر في الموقع</label><textarea class="is" rows="5" placeholder="اكتب التحليل هنا..." oninput="S.analysisReports['+i+'].text=this.value;renderAnalysis()">'+esc(r.text||'')+'</textarea></div>';
       files.forEach(function(f,k){h+='<div class="cms-file-row"><a href="'+esc(safeUrl(f.url))+'" target="_blank" rel="noopener">'+fileIconByName(f.name)+' '+esc(f.name||'مرفق')+'</a><button class="delbtn" onclick="(S.analysisReports['+i+'].files||S.analysisReports['+i+'].pdfs).splice('+k+',1);_renderSt(\'surveys\');renderAnalysis()">✕</button></div>';});
-      h+='<button class="abtn" onclick="arUploadPdf('+i+')">📎 رفع مرفق تحليل PDF أو صورة</button></div></div>';
-    });
-    h+='<button class="abtn" onclick="arAdd();window._surveyCmsTab=\'reports\';_renderSt(\'surveys\')">+ إضافة تقرير تحليل</button>';
-    h+='</div>';
+      h+='<button class="abtn" onclick="arUploadPdf('+i+')">📎 رفع مرفق تحليل PDF أو صورة</button></div></div>';});
+    h+='<button class="abtn" onclick="arAdd();window._surveyCmsTab=\'reports\';_renderSt(\'surveys\')">+ إضافة تقرير تحليل</button></div>';
   }
-
   if(tab==='board'){
-    h+='<div class="cms-work-card"><div class="cms-work-title">🏛 توصيات مجلس الإدارة</div>';
-    h+='<div class="note">كل توصية يمكن ربطها باستطلاع محدد حتى تظهر للزائر واضحة مع اسم الاستطلاع المرتبط.</div>';
+    h+='<div class="cms-work-card"><div class="cms-work-title">🏛 توصيات مجلس الإدارة</div><div class="note">كل توصية يمكن ربطها باستطلاع محدد حتى تظهر للزائر واضحة مع اسم الاستطلاع المرتبط.</div>';
     if(!S.boardDecisions.length){h+='<div class="empty-state">لا توجد توصيات بعد</div>';}
-    (S.boardDecisions||[]).forEach(function(d,i){
-      h+='<div class="ibox"><div class="ibox-hd" onclick="toggleIbox(this)"><span class="ibox-t">🏛 '+esc(d.title||'توصية')+'</span><div style="display:flex;gap:6px;align-items:center"><span class="ibox-arrow">▼</span><button class="delbtn" onclick="event.stopPropagation();S.boardDecisions.splice('+i+',1);renderBoard();_renderSt(\'surveys\')">🗑</button></div></div><div class="ibox-body">';
+    (S.boardDecisions||[]).forEach(function(d,i){h+='<div class="ibox"><div class="ibox-hd" onclick="toggleIbox(this)"><span class="ibox-t">🏛 '+esc(d.title||'توصية')+'</span><div style="display:flex;gap:6px;align-items:center"><span class="ibox-arrow">▼</span><button class="delbtn" onclick="event.stopPropagation();S.boardDecisions.splice('+i+',1);renderBoard();_renderSt(\'surveys\')">🗑</button></div></div><div class="ibox-body">';
       h+='<div class="pnl-grid2"><div class="pnl-field"><label>الاستطلاع المرتبط بالتوصية</label>'+cmsSurveySelect(d.survey,'S.boardDecisions['+i+'].survey=this.value;renderBoard()')+'</div><div class="pnl-field"><label>التاريخ</label><input class="is" value="'+esc(d.date||'')+'" oninput="S.boardDecisions['+i+'].date=this.value;renderBoard()"></div></div>';
-      h+='<div class="pnl-field"><label>عنوان التوصية</label><input class="is" value="'+esc(d.title||'')+'" oninput="S.boardDecisions['+i+'].title=this.value;renderBoard()"></div>';
-      h+='<div class="pnl-field"><label>نص التوصية الذي سيظهر في الموقع</label><textarea class="is" rows="5" placeholder="اكتب نص التوصية هنا..." oninput="S.boardDecisions['+i+'].body=this.value;renderBoard()">'+esc(d.body||'')+'</textarea></div>';
+      h+='<div class="pnl-field"><label>عنوان التوصية</label><input class="is" value="'+esc(d.title||'')+'" oninput="S.boardDecisions['+i+'].title=this.value;renderBoard()"></div><div class="pnl-field"><label>نص التوصية الذي سيظهر في الموقع</label><textarea class="is" rows="5" placeholder="اكتب نص التوصية هنا..." oninput="S.boardDecisions['+i+'].body=this.value;renderBoard()">'+esc(d.body||'')+'</textarea></div>';
       (d.files||[]).forEach(function(f,k){h+='<div class="cms-file-row"><a href="'+esc(safeUrl(f.url))+'" target="_blank" rel="noopener">📄 '+esc(f.name||'ملف توصية')+'</a><button class="delbtn" onclick="S.boardDecisions['+i+'].files.splice('+k+',1);_renderSt(\'surveys\');renderBoard()">✕</button></div>';});
-      h+='<button class="abtn" onclick="bdUploadFile('+i+')">📎 رفع ملف PDF للتوصية</button></div></div>';
-    });
-    h+='<button class="abtn" onclick="bdAdd();window._surveyCmsTab=\'board\';_renderSt(\'surveys\')">+ إضافة توصية</button>';
-    h+='</div>';
+      h+='<button class="abtn" onclick="bdUploadFile('+i+')">📎 رفع ملف PDF للتوصية</button></div></div>';});
+    h+='<button class="abtn" onclick="bdAdd();window._surveyCmsTab=\'board\';_renderSt(\'surveys\')">+ إضافة توصية</button></div>';
   }
-
+  if(tab==='attachments'){
+    h+='<div class="cms-work-card"><div class="cms-work-title">📎 مرفقات الزوار</div><div class="note">هذا القسم خاص بلوحة التحكم فقط. لا تظهر هذه المرفقات للزوار في تبويب النتائج والتحليل حفاظًا على الخصوصية.</div><div id="cms-survey-attachments-body"></div></div>';
+    setTimeout(loadSurveyAttachmentsPanel,50);
+  }
   h+='<button class="sbtn" onclick="saveState(true)">💾 حفظ التغييرات</button>';
   return h;
 }
