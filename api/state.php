@@ -9,9 +9,11 @@
 require_once dirname(__DIR__) . '/config/database.php';
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+$allowed_origins = ['https://mnassat.com', 'https://www.mnassat.com'];
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+header('Access-Control-Allow-Origin: ' . (in_array($origin, $allowed_origins, true) ? $origin : 'https://mnassat.com'));
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-CMS-Token');
+header('Access-Control-Allow-Headers: Content-Type, X-CMS-Token, Authorization');
 header('Access-Control-Allow-Credentials: true');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -20,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // ════════════════════════════════════════════════════════════
-// التحقق من الصلاحية — 3 طرق متوازية
+// التحقق من الصلاحية — جلسة PHP أو X-CMS-Token. لا نقبل cookie وحده في POST لتقليل CSRF.
 // ════════════════════════════════════════════════════════════
 function isAuthorized(): bool {
 
@@ -35,12 +37,9 @@ function isAuthorized(): bool {
         if (validateToken($header_token)) return true;
     }
 
-    // ── 3. Cookie cms_token (احتياطي) ───────────────────────
-    $cookie_token = !empty($_COOKIE['cms_token'])
-        ? urldecode($_COOKIE['cms_token'])
-        : '';
-    if (!empty($cookie_token)) {
-        if (validateToken($cookie_token)) return true;
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!empty($authHeader) && stripos($authHeader, 'Bearer ') === 0) {
+        if (validateToken(substr($authHeader, 7))) return true;
     }
 
     return false;
@@ -51,22 +50,22 @@ function validateToken(string $token): bool {
     if (empty($token)) return false;
 
     try {
-        $parts = explode('|', base64_decode($token));
+        $decoded = base64_decode($token, true);
+        if ($decoded === false) return false;
+        $parts = explode('|', $decoded);
         $uid   = (int)($parts[0] ?? 0);
         if ($uid < 1) return false;
 
-        // جرّب cms_users (النظام الجديد لـ cms_auth.php)
         try {
             $stmt = getDB()->prepare(
                 "SELECT id FROM cms_users
-                 WHERE id = ? AND active_token = ? AND token_expires > NOW()
+                 WHERE id = ? AND active_token = ? AND token_expires > NOW() AND is_active = 1
                  LIMIT 1"
             );
             $stmt->execute([$uid, $token]);
             if ($stmt->fetch()) return true;
         } catch (Throwable $e) {}
 
-        // جرّب users (النظام القديم)
         try {
             $stmt = getDB()->prepare(
                 "SELECT id FROM users
@@ -80,6 +79,24 @@ function validateToken(string $token): bool {
     } catch (Throwable $e) {}
 
     return false;
+}
+
+function sanitizeStateValue($value) {
+    if (is_array($value)) {
+        $clean = [];
+        foreach ($value as $key => $item) {
+            $cleanKey = is_string($key) ? substr(strip_tags($key), 0, 120) : $key;
+            $clean[$cleanKey] = sanitizeStateValue($item);
+        }
+        return $clean;
+    }
+    if (is_string($value)) {
+        $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value);
+        $value = strip_tags($value);
+        $value = preg_replace('/^\s*(javascript|data):/i', '', $value);
+        return mb_substr($value, 0, 20000, 'UTF-8');
+    }
+    return $value;
 }
 
 // ── إنشاء الجدول تلقائياً إن لم يكن موجوداً ─────────────────
@@ -152,7 +169,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $json     = json_encode($data['S'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $cleanState = sanitizeStateValue($data['S']);
+        $json     = json_encode($cleanState, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $existing = dbQuery("SELECT id FROM site_state WHERE state_key='main' LIMIT 1");
 
         if (!empty($existing)) {

@@ -1199,7 +1199,7 @@ function clearOldDBData(){
   if(!confirm('سيتم مسح تقارير التحليل وتوصيات المجلس من DB. متأكد؟')) return;
   S.analysisReports=[];
   S.boardDecisions=[];
-  fetch('/mosque/api/state.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'main',data:S})})
+  fetch('/mosque/api/state.php',{method:'POST',headers:cmsAuthHeaders({'Content-Type':'application/json'}),body:JSON.stringify({S:S})})
   .then(function(){toast('✅ تم مسح البيانات القديمة من DB');G('surveys');})
   .catch(function(){toast('❌ خطأ في الحفظ');});
 }
@@ -1248,7 +1248,7 @@ function arUploadPdf(i){
     if(!S.analysisReports[i].pdfs)S.analysisReports[i].pdfs=[];
     toast('جارٍ رفع الملف...');
     var fd=new FormData();fd.append('file',f);fd.append('type','pdf');
-    fetch('/mosque/api/upload_file.php',{method:'POST',body:fd})
+    fetch('/mosque/api/upload_file.php',{method:'POST',headers:cmsAuthHeaders(),body:fd})
     .then(function(r){return r.json();})
     .then(function(res){
       if(res.success&&res.url){
@@ -2317,7 +2317,7 @@ function _renderSt(tab){
 var _saveTimer=null;
 function saveState(showToast){
   if(showToast) toast('⏳ جارٍ الحفظ...');
-  fetch('/mosque/api/state.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({S:S})})
+  fetch('/mosque/api/state.php',{method:'POST',headers:cmsAuthHeaders({'Content-Type':'application/json'}),body:JSON.stringify({S:S})})
   .then(function(r){return r.json();})
   .then(function(res){if(showToast) toast(res&&res.success?'✅ تم الحفظ للجميع':'⚠️ '+(res&&res.error||'خطأ'));}).catch(function(){if(showToast) toast('⚠️ تعذّر الحفظ');});
 }
@@ -2633,6 +2633,7 @@ function cpUploadFiles(pi, bi, files, isPdf, progressContainerId) {
       var fd=new FormData(); fd.append('file',f);
       var xhr=new XMLHttpRequest();
       xhr.open('POST','/mosque/api/upload_file.php');
+      var _cmsTok=getCmsToken(); if(_cmsTok) xhr.setRequestHeader('X-CMS-Token', _cmsTok);
       xhr.upload.onprogress=function(e){
         if(e.lengthComputable){
           var pct=Math.round(e.loaded/e.total*100);
@@ -2908,17 +2909,28 @@ var _cmsSession = null;
 function getCmsSession(){
   try{ return JSON.parse(localStorage.getItem('cms_session')||'null'); }catch(e){return null;}
 }
+function getCmsToken(){
+  var session = getCmsSession();
+  return session && session.token ? session.token : '';
+}
+function cmsAuthHeaders(base){
+  var headers = base || {};
+  var token = getCmsToken();
+  if(token) headers['X-CMS-Token'] = token;
+  return headers;
+}
 function setCmsSession(data){
   localStorage.setItem('cms_session', JSON.stringify(data));
   _cmsSession = data;
   /* حفظ الـ token في Cookie حتى يستطيع PHP التحقق منه */
   if(data && data.token){
     var exp = new Date(Date.now() + 30*24*3600*1000).toUTCString();
-    document.cookie = 'cms_token=' + encodeURIComponent(data.token) + '; expires=' + exp + '; path=/mosque; SameSite=Lax';
+    document.cookie = 'cms_token=' + encodeURIComponent(data.token) + '; expires=' + exp + '; path=/mosque; SameSite=Strict' + (location.protocol==='https:'?'; Secure':'');
   }
 }
 function clearCmsSession(){
   localStorage.removeItem('cms_session');
+  document.cookie = 'cms_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/mosque; SameSite=Strict' + (location.protocol==='https:'?'; Secure':'');
   _cmsSession = null;
 }
 
@@ -3060,9 +3072,7 @@ function initMaintenance(){
   if(window.location.pathname.indexOf('/admin') !== -1) return;
   /* ── استثناء 2: IS_ADMIN محقون من PHP (مشرف مسجّل من الخادم) ── */
   if(typeof IS_ADMIN !== 'undefined' && IS_ADMIN === true) return;
-  /* ── استثناء 3: مشرف من localStorage ── */
-  var session = getCmsSession();
-  if(session && session.role==='admin') return;
+  /* لا نعتمد على localStorage وحده لتجاوز الصيانة؛ الصلاحية الحقيقية تأتي من PHP. */
   /* ── إذا انتهى الوقت → أوقف آلياً ── */
   if(m.until){
     var remaining = new Date(m.until) - new Date();
@@ -3346,7 +3356,7 @@ function addCmsUser(){
   var tempPass = Math.random().toString(36).slice(-8);
   fetch('/mosque/api/cms_auth.php',{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:cmsAuthHeaders({'Content-Type':'application/json'}),
     body:JSON.stringify({action:'create_user',email:email,name:name,password:tempPass,role:'limited',tabs:[]})
   }).then(function(r){return r.json();})
   .then(function(res){
@@ -3367,7 +3377,7 @@ function delCmsUser(i){
   var email = (S.cmsUsers[i]||{}).email;
   S.cmsUsers.splice(i,1);
   autoSave();
-  if(email) fetch('/mosque/api/cms_auth.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete_user',email:email})});
+  if(email) fetch('/mosque/api/cms_auth.php',{method:'POST',headers:cmsAuthHeaders({'Content-Type':'application/json'}),body:JSON.stringify({action:'delete_user',email:email})});
   _renderSt('users');
 }
 
@@ -3385,7 +3395,7 @@ function toggleCmsUserTab(i,tab,checked){
   if(!checked&&idx>-1) S.cmsUsers[i].tabs.splice(idx,1);
   autoSave();
   /* تحديث صلاحيات المستخدم في الخادم */
-  fetch('/mosque/api/cms_auth.php',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch('/mosque/api/cms_auth.php',{method:'POST',headers:cmsAuthHeaders({'Content-Type':'application/json'}),
     body:JSON.stringify({action:'update_tabs',email:S.cmsUsers[i].email,tabs:S.cmsUsers[i].tabs})});
 }
 
@@ -3436,7 +3446,7 @@ function saveMainUser(){
   var payload = {action:'update_main_user', name:name, email:email};
   if(pass) payload.password = pass;
   fetch('/mosque/api/cms_auth.php',{
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+    method:'POST', headers:cmsAuthHeaders({'Content-Type':'application/json'}), body:JSON.stringify(payload)
   }).then(function(r){return r.json();})
   .then(function(res){
     if(res.success){
@@ -3485,7 +3495,7 @@ function submitAddUser(){
   document.querySelectorAll('.new-user-tab-cb:checked').forEach(function(cb){ tabs.push(cb.value); });
   if(role==='admin') tabs = CMS_ALL_TABS.slice();
   fetch('/mosque/api/cms_auth.php',{
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST', headers:cmsAuthHeaders({'Content-Type':'application/json'}),
     body:JSON.stringify({action:'create_user', email:email, name:name, password:tempPass, role:role, tabs:tabs})
   }).then(function(r){return r.json();})
   .then(function(res){

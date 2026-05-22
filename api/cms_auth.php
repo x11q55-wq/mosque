@@ -4,8 +4,13 @@
  * نظام مصادقة لوحة التحكم + إدارة المستخدمين + استعادة كلمة المرور
  */
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Headers: Content-Type');
+$allowed_origins = ['https://mnassat.com', 'https://www.mnassat.com'];
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+header('Access-Control-Allow-Origin: ' . (in_array($origin, $allowed_origins, true) ? $origin : 'https://mnassat.com'));
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, X-CMS-Token, Authorization');
+header('Access-Control-Allow-Credentials: true');
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') { http_response_code(204); exit; }
 
 require_once dirname(__DIR__).'/config/database.php';
 
@@ -33,13 +38,7 @@ function ensureTable(){
     try { $db->exec("ALTER TABLE cms_users ADD COLUMN IF NOT EXISTS `is_active` TINYINT(1) DEFAULT 1"); } catch(Throwable $e){}
     try { $db->exec("ALTER TABLE cms_users ADD COLUMN IF NOT EXISTS `last_login` DATETIME DEFAULT NULL"); } catch(Throwable $e){}
 
-    /* أنشئ مدير افتراضي إذا لم يوجد أحد */
-    $count = $db->query("SELECT COUNT(*) FROM cms_users")->fetchColumn();
-    if($count == 0){
-        $hash = password_hash('Admin@2026', PASSWORD_BCRYPT);
-        $db->prepare("INSERT INTO cms_users (name,email,password_hash,role,tabs) VALUES (?,?,?,'admin','[]')")
-           ->execute(['المدير العام','admin@mosque.local',$hash]);
-    }
+    // لا ننشئ حساب مدير افتراضي بكلمة ثابتة. إنشاء المستخدمين يتم يدوياً من قاعدة البيانات أو عبر مدير قائم.
 }
 
 /* ──────────────────────────── توليد Token ────────────────────────────── */
@@ -47,8 +46,40 @@ function generateToken($userId){
     return base64_encode($userId.'|'.time().'|'.bin2hex(random_bytes(16)));
 }
 function decodeToken($token){
-    $parts = explode('|', base64_decode($token));
+    $decoded = base64_decode((string)$token, true);
+    if ($decoded === false) return null;
+    $parts = explode('|', $decoded);
     return count($parts)===3 ? $parts : null;
+}
+
+function requestToken(array $input): string {
+    $header = $_SERVER['HTTP_X_CMS_TOKEN'] ?? '';
+    if (!$header && !empty($_SERVER['HTTP_AUTHORIZATION']) && stripos($_SERVER['HTTP_AUTHORIZATION'], 'Bearer ') === 0) {
+        $header = substr($_SERVER['HTTP_AUTHORIZATION'], 7);
+    }
+    return trim($header ?: ($input['token'] ?? ''));
+}
+
+function cmsUserFromToken(string $token): ?array {
+    if ($token === '' || strlen($token) > 2048) return null;
+    $parts = decodeToken($token);
+    if (!$parts) return null;
+    $userId = (int)$parts[0];
+    if ($userId < 1) return null;
+    $stmt = getDB()->prepare("SELECT * FROM cms_users WHERE id=? AND active_token=? AND token_expires > NOW() AND is_active=1 LIMIT 1");
+    $stmt->execute([$userId, $token]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $user ?: null;
+}
+
+function requireCmsAdmin(array $input): array {
+    $user = cmsUserFromToken(requestToken($input));
+    if (!$user || ($user['role'] ?? '') !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['success'=>false,'error'=>'غير مصرح — صلاحية المدير مطلوبة']);
+        exit;
+    }
+    return $user;
 }
 
 /* ──────────────────────────── إرسال الإيميل ────────────────────────────── */
@@ -128,14 +159,8 @@ switch($action){
 
     /* ── التحقق من التوكن ── */
     case 'verify':
-        $token = $input['token']??'';
-        $parts = decodeToken($token);
-        if(!$parts){ echo json_encode(['success'=>false]); exit; }
-        $userId = (int)$parts[0];
-        /* تحقق من الـ token في DB مباشرة */
-        $stmt = $db->prepare("SELECT * FROM cms_users WHERE id=? AND active_token=? AND token_expires > NOW() LIMIT 1");
-        $stmt->execute([$userId, $token]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $token = requestToken($input);
+        $user = cmsUserFromToken($token);
         if(!$user){ echo json_encode(['success'=>false]); exit; }
         $tabs = json_decode($user['tabs']??'[]',true);
         echo json_encode(['success'=>true,'user'=>[
@@ -150,7 +175,7 @@ switch($action){
         $stmt = $db->prepare("SELECT * FROM cms_users WHERE email=? LIMIT 1");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        if(!$user){ echo json_encode(['success'=>false,'error'=>'البريد غير مسجل في النظام']); exit; }
+        if(!$user){ echo json_encode(['success'=>true,'sent'=>false]); exit; }
         $token   = bin2hex(random_bytes(32));
         $expires = date('Y-m-d H:i:s', time()+3600);
         $db->prepare("UPDATE cms_users SET reset_token=?,reset_expires=? WHERE id=?")->execute([$token,$expires,$user['id']]);
@@ -160,6 +185,7 @@ switch($action){
 
     /* ── إنشاء مستخدم جديد ── */
     case 'create_user':
+        requireCmsAdmin($input);
         $email    = trim($input['email']??'');
         $name     = trim($input['name']??'');
         $password = $input['password']??bin2hex(random_bytes(8));
@@ -182,13 +208,16 @@ switch($action){
 
     /* ── حذف مستخدم ── */
     case 'delete_user':
+        $admin = requireCmsAdmin($input);
         $email = trim($input['email']??'');
-        $db->prepare("DELETE FROM cms_users WHERE email=?")->execute([$email]);
+        if ($email === ($admin['email'] ?? '')) { echo json_encode(['success'=>false,'error'=>'لا يمكن حذف حسابك الحالي']); break; }
+        $db->prepare("DELETE FROM cms_users WHERE email=? AND role <> 'admin'")->execute([$email]);
         echo json_encode(['success'=>true]);
         break;
 
     /* ── تحديث التبويبات ── */
     case 'update_tabs':
+        requireCmsAdmin($input);
         $email = trim($input['email']??'');
         $tabs  = json_encode($input['tabs']??[]);
         $db->prepare("UPDATE cms_users SET tabs=? WHERE email=?")->execute([$tabs,$email]);

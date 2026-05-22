@@ -10,15 +10,19 @@ if (isLoggedIn()) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (function_exists('verifyCsrf') && !verifyCsrf()) {
+        $error = 'انتهت صلاحية الجلسة، أعد المحاولة';
+    }
     $email = sanitizeEmail($_POST['email'] ?? '');
     $pass  = $_POST['password'] ?? '';
 
-    if ($email && $pass) {
+    if (!$error && $email && $pass) {
         $user = dbQueryOne(
             "SELECT * FROM users WHERE email = ? AND is_active = 1",
             [$email]
         );
         if ($user && password_verify($pass, $user['password'])) {
+            session_regenerate_id(true);
             $_SESSION['admin_id']   = $user['id'];
             $_SESSION['admin_role'] = $user['role'];
             $_SESSION['admin_name'] = $user['name'];
@@ -75,6 +79,7 @@ body{font-family:'Tajawal',Arial,sans-serif;background:#f5f1ea;min-height:100vh;
   <?php endif; ?>
 
   <form method="POST" action="/mosque/admin/login">
+    <input type="hidden" name="_token" value="<?= htmlspecialchars(csrfToken()) ?>">
     <div class="form-group">
       <label>البريد الإلكتروني</label>
       <input type="email" name="email" placeholder="admin@mosqueksa.org"
@@ -88,10 +93,7 @@ body{font-family:'Tajawal',Arial,sans-serif;background:#f5f1ea;min-height:100vh;
   </form>
 
   <div class="hint">
-    <strong>بيانات الدخول الافتراضية:</strong><br>
-    البريد: admin@mosqueksa.org<br>
-    كلمة المرور: Admin@1234<br>
-    <span style="color:#c9a227;font-weight:700">⚠ غيّر كلمة المرور بعد أول دخول</span>
+    لحماية لوحة التحكم، لا تُعرض بيانات الدخول على هذه الصفحة. استخدم بيانات المدير المعتمدة لديك.
   </div>
 
   <div class="back">

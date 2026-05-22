@@ -23,7 +23,7 @@ if (in_array($origin, $allowed_origins)) {
     header('Access-Control-Allow-Origin: https://mnassat.com');
 }
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Requested-With');
+header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, X-CMS-Token, Authorization');
 header('Access-Control-Allow-Credentials: true');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -75,19 +75,33 @@ function checkRateLimit(string $action): bool {
 function isAdminUser(): bool {
     if (session_status() === PHP_SESSION_NONE) session_start();
     if (!empty($_SESSION['admin_id']) || !empty($_SESSION['cms_admin_id'])) return true;
-    if (!empty($_COOKIE['cms_token'])) {
-        try {
-            $token = urldecode($_COOKIE['cms_token']);
-            $parts = explode('|', base64_decode($token));
-            if (count($parts) >= 2) {
-                $stmt = getDB()->prepare(
-                    "SELECT id FROM users WHERE id=? AND remember_token=? AND is_active=1 LIMIT 1"
-                );
-                $stmt->execute([(int)$parts[0], $token]);
-                if ($stmt->fetch()) return true;
-            }
-        } catch (Throwable $e) {}
+
+    $token = $_SERVER['HTTP_X_CMS_TOKEN'] ?? '';
+    if (!$token && !empty($_SERVER['HTTP_AUTHORIZATION']) && stripos($_SERVER['HTTP_AUTHORIZATION'], 'Bearer ') === 0) {
+        $token = substr($_SERVER['HTTP_AUTHORIZATION'], 7);
     }
+    if (!$token && !empty($_COOKIE['cms_token'])) $token = urldecode($_COOKIE['cms_token']);
+    if (!$token || strlen($token) > 2048) return false;
+
+    try {
+        $decoded = base64_decode($token, true);
+        if ($decoded === false) return false;
+        $parts = explode('|', $decoded);
+        $uid = (int)($parts[0] ?? 0);
+        if ($uid < 1) return false;
+
+        try {
+            $stmt = getDB()->prepare("SELECT id FROM cms_users WHERE id=? AND active_token=? AND token_expires > NOW() AND is_active=1 LIMIT 1");
+            $stmt->execute([$uid, $token]);
+            if ($stmt->fetch()) return true;
+        } catch (Throwable $e) {}
+
+        try {
+            $stmt = getDB()->prepare("SELECT id FROM users WHERE id=? AND remember_token=? AND is_active=1 LIMIT 1");
+            $stmt->execute([$uid, $token]);
+            if ($stmt->fetch()) return true;
+        } catch (Throwable $e) {}
+    } catch (Throwable $e) {}
     return false;
 }
 
@@ -193,10 +207,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $page      = max(1, (int)($_GET['page'] ?? 1));
     $per_page  = (int)($_GET['per_page'] ?? 20);
     if ($per_page > 9999) $per_page = 9999;
+    if (!$is_admin && $per_page > 100) $per_page = 100;
     $offset    = ($page - 1) * $per_page;
 
-    // إذا طلب الكل وليس مشرفاً — ارفض
-    if (!$is_admin && empty($form_key)) {
+    // لا نكشف الردود التفصيلية للزوار. يسمح فقط بنتائج الاستطلاعات العامة التي تبدأ بـ survey_.
+    if (!$is_admin && (empty($form_key) || strpos($form_key, 'survey_') !== 0)) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'غير مصرح']);
         exit;

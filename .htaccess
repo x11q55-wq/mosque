@@ -36,6 +36,7 @@ RewriteBase /mosque/
     RewriteRule ^config/ - [F,L]
     RewriteRule ^logs/ - [F,L]
     RewriteRule ^\.env - [F,L]
+    RewriteRule ^mosque_full\.html$ - [F,L]
 </IfModule>
 
 # ── منع الوصول المباشر لملفات PHP الحساسة ────────────────
@@ -95,6 +96,9 @@ RewriteBase /mosque/
 #  إعادة توجيه جميع الطلبات لـ index.php
 # ════════════════════════════════════════════════════════════
 <IfModule mod_rewrite.c>
+    # index.html قالب للواجهة المقسمة، ويجب عرضه عبر index.php حتى تعمل صلاحيات الإدارة والصيانة.
+    RewriteRule ^index\.html$ index.php [QSA,L]
+
     # تجاهل الملفات الموجودة فعلاً
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
