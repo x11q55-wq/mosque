@@ -6,6 +6,7 @@
 
 Options -Indexes
 Options -MultiViews
+DirectoryIndex index.php index.html
 
 # ── تفعيل محرك إعادة التوجيه ─────────────────────────────
 RewriteEngine On

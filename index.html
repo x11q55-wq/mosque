@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>جمعية العناية بالمساجد — KSA Mosque Care Foundation</title>
+
+<!-- ══ Favicon ══ -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230f3d26'/><text y='.9em' font-size='70' x='50%' text-anchor='middle'>🕌</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230f3d26'/><text y='.9em' font-size='70' x='50%' text-anchor='middle'>🕌</text></svg>">
+
+<!-- ══ Open Graph (واتساب / تويتر / فيسبوك) ══ -->
+<meta property="og:type"        content="website">
+<meta property="og:site_name"   content="جمعية العناية بالمساجد">
+<meta property="og:title"       content="جمعية العناية بالمساجد — KSA Mosque Care Foundation">
+<meta property="og:description" content="جمعية خيرية متخصصة في صيانة وتطوير المساجد عبر المملكة العربية السعودية — منذ 1440 هـ">
+<meta property="og:image"       content="https://mnassat.com/mosque/og-image.jpg">
+<meta property="og:image:width"  content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url"         content="https://mnassat.com/mosque/">
+<meta property="og:locale"      content="ar_SA">
+
+<!-- ══ Twitter Card ══ -->
+<meta name="twitter:card"        content="summary_large_image">
+<meta name="twitter:title"       content="جمعية العناية بالمساجد">
+<meta name="twitter:description" content="جمعية خيرية متخصصة في صيانة وتطوير المساجد عبر المملكة العربية السعودية">
+<meta name="twitter:image"       content="https://mnassat.com/mosque/og-image.jpg">
+
+<!-- ══ WhatsApp specific ══ -->
+<meta name="description" content="جمعية خيرية متخصصة في صيانة وتطوير المساجد عبر المملكة العربية السعودية — منذ 1440 هـ">
+
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<!-- تحديد صفحات الإدارة فوراً قبل أي render لمنع وميض شاشة الصيانة -->
+<script>if(window.location.pathname.indexOf('/admin')!==-1){document.documentElement.classList.add('admin-path');}</script>
+</head>
+<body>
+
+<div class="toast" id="T">تم ✓</div>
+
+<!-- ══════════ MAIN SHELL ══════════ -->
+<div class="shell">
+
+<!-- ══ CMS PANEL ══ -->
+<div class="cms-panel" id="cms-panel">
+<script>
+/* دوال Cookie */
+function getCookie(name){var v='; '+document.cookie;var p=v.split('; '+name+'=');if(p.length===2)return p.pop().split(';').shift();return null;}
+function setCookie(name,val){var exp=new Date();exp.setTime(exp.getTime()+7*86400000);document.cookie=name+'='+val+';expires='+exp.toUTCString()+';path=/mosque/';}
+/* تطبيق حالة اللوحة فوراً من Cookie */
+(function(){
+  var el=document.getElementById('cms-panel');
+  var btn=document.getElementById('cms-toggle');
+  var isOpen=getCookie('cms_open')==='1';
+  if(el) el.style.transition='none';
+  if(isOpen){
+    if(el){el.classList.remove('collapsed');el.style.width='';}
+    if(btn){btn.classList.remove('collapsed');btn.style.left=(window.innerWidth<=1100?'280':'320')+'px';}
+  } else {
+    if(el){el.classList.add('collapsed');el.style.width='0';}
+    if(btn){btn.classList.add('collapsed');btn.style.left='0px';}
+  }
+  requestAnimationFrame(function(){if(el)el.style.transition='';});
+})();
+</script>
+  <div class="cms-hd">
+    <div class="cms-hd-title">⚙ لوحة التحكم</div>
+    <button class="cms-save-all" onclick="saveState(true)">💾 حفظ</button><button style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;font-family:Tajawal,sans-serif;margin-right:6px;" onclick="sessionStorage.setItem('cms_open','1');sessionStorage.setItem('cms_tab',sessionStorage.getItem('cms_tab')||'global');location.reload()">🔄 تحديث</button>
+  </div>
+  <div style="display:flex;flex:1;overflow:hidden;">
+    <div class="cms-tabs" id="cms-tabs">
+      <button class="cms-tab on"  onclick="G('global')">🌐 عام</button>
+      <button class="cms-tab" onclick="G('navbar')">🔝 القوائم</button>
+      <button class="cms-tab" onclick="G('hero')">🏠 هيرو</button>
+      <button class="cms-tab" onclick="G('achiev')">📊 إنجازات</button>
+      <button class="cms-tab" onclick="G('stats')">🔢 أرقام</button>
+      <button class="cms-tab" onclick="G('projects')">🏗 مشاريع</button>
+      <button class="cms-tab" onclick="G('partners')">🤝 شركاء</button>
+      <button class="cms-tab" onclick="G('news')">📰 أخبار</button>
+      <button class="cms-tab" onclick="G('events')">📅 فعاليات</button>
+      <button class="cms-tab" onclick="G('testimonials')">💬 آراء</button>
+      <button class="cms-tab" onclick="G('surveys')">📋 استطلاعات</button>
+      <button class="cms-tab" onclick="G('footer')">📍 فوتر</button>
+      <button class="cms-tab" onclick="G('sections')">☰ أقسام</button>
+      <button class="cms-tab" onclick="G('regforms')">📋 نماذج</button>
+      <button class="cms-tab" onclick="G('users')" data-tab="users">👥 المستخدمون</button>
+      <button class="cms-tab" onclick="G('maintenance')" data-tab="maintenance">🔒 الصيانة</button>
+    </div>
+    <div class="cms-body" id="CB"></div>
+  </div>
+</div>
+
+<!-- TOGGLE -->
+<button class="cms-toggle" id="cms-toggle" onclick="toggleCMS()">لوحة<br>التحكم</button>
+
+<!-- ══ SITE PANEL ══ -->
+<div class="site-panel" id="site-panel">
+
+  <!-- NAVBAR -->
+  <nav class="navbar" id="p-nav">
+    <div class="nav-inner">
+      <div class="nav-logo" onclick="scrollSec('home')">
+        <img src="assets/logo.jpg" alt="شعار" id="p-nav-icon" style="height:44px;width:44px;object-fit:contain;border-radius:6px;">
+        <div>
+          <div class="nav-logo-name" id="p-org-name">جمعية العناية بالمساجد</div>
+          <div class="nav-logo-sub" id="p-org-sub">KSA Mosque Care Foundation</div>
+        </div>
+      </div>
+      <div class="nav-links" id="p-nav-links"></div>
+      <button class="mob-nav-btn" id="mob-nav-btn" onclick="openMobNav()" style="display:none">☰</button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section id="home" class="hero" id="p-hero">
+    <div class="hero::before"></div>
+    <div class="hero-inner">
+      <div class="hero-text-col">
+        <div class="hero-badge" id="p-badge">🌙 منذ 1440 هـ · رعاية · تطوير · استدامة</div>
+                <h1 class="hero-title" id="p-h1">نحن نعتني بـ <em id="p-em">بيوت الله</em><br>لتبقى شامخةً بالعبادة</h1>
+                <p class="hero-sub" id="p-sub">جمعية خيرية متخصصة في صيانة وتطوير المساجد عبر المملكة العربية السعودية</p>
+                <div class="hero-btns">
+                  <button class="btn-primary" id="p-btn1" onclick="scrollSec('projects')">🏗 استعرض مشاريعنا</button>
+                  <button class="btn-outline" id="p-btn2" onclick="scrollSec('surveys-sec')">📋 شارك في الاستطلاع</button>
+                </div>
+                <div class="hero-stats" id="p-hero-stats"></div>
+      </div>
+      <div class="hero-logo-col">
+        <div class="hero-logo-wrap" style="display:flex;justify-content:center;margin-bottom:28px;position:relative;">
+        <svg viewBox="0 0 520 440" width="560" height="460" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;overflow:visible;">
+  <defs>
+    <pattern id="hexOnly" x="0" y="0" width="50" height="58" patternUnits="userSpaceOnUse">
+      <polygon points="25,2 48,14 48,44 25,56 2,44 2,14"
+        fill="none" stroke="rgba(160,120,0,0.11)" stroke-width="0.7"/>
+      <polygon points="25,10 40,18 40,40 25,48 10,40 10,18"
+        fill="none" stroke="rgba(15,61,38,0.06)" stroke-width="0.45"/>
+    </pattern>
+  </defs>
+  <!-- مسدسات مائية متحركة ببطء -->
+  <g style="animation:hexDrift 35s ease-in-out infinite alternate;">
+    <rect x="-15" y="-15" width="550" height="470" fill="url(#hexOnly)"/>
+  </g>
+</svg>
+        <div style="position:relative;z-index:2;background:#ffffff;border:1px solid rgba(15,61,38,0.1);border-radius:24px;padding:28px 40px 22px;text-align:center;box-shadow:0 8px 32px rgba(15,61,38,0.1),0 2px 8px rgba(0,0,0,0.06);min-width:240px;">
+          <div style="position:relative;display:inline-block;margin-bottom:14px;">
+            <div style="display:none;"></div>
+            <img src="assets/logo.jpg" alt="شعار جمعية العناية بالمساجد" style="position:relative;width:140px;height:140px;object-fit:contain;display:block;border-radius:12px;box-shadow:0 4px 20px rgba(15,61,38,0.15);">
+          </div>
+          <div style="width:50px;height:1.5px;background:linear-gradient(90deg,transparent,#c9a227,transparent);margin:0 auto 10px;"></div>
+          <div style="font-size:15px;font-weight:800;color:#0f3d26;line-height:1.5;margin-bottom:4px;">جمعية العناية بالمساجد</div>
+          <div style="font-size:10px;color:#9a7400;letter-spacing:2px;">KSA MOSQUE CARE</div>
+        </div>
+      </div>
+      </div>
+    </div>
+          </div>
+  </section>
+
+  <!-- ACHIEV -->
+  <section id="p-achiev-sec" class="achiev">
+    <div class="achiev-inner">
+      <div class="achiev-hd">
+        <div class="achiev-title" id="p-ach-title">إنجازاتنا في أرقام</div>
+        <div class="achiev-sub" id="p-ach-sub">تعرّف على ما حققناه منذ التأسيس عام 1440 هـ</div>
+      </div>
+      <div class="achiev-grid" id="p-achiev-grid"></div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <div id="p-stats-sec" class="stats-bar">
+    <div class="stats-inner" id="p-stats-inner"></div>
+  </div>
+
+  <!-- PROJECTS -->
+  <section id="projects" class="section" id="p-prj-sec">
+    <div class="section-inner">
+      <div class="section-hd">
+        <div class="section-tag" id="p-prj-tag">مشاريعنا الحالية</div>
+        <div class="section-title" id="p-prj-title">ساهم في بناء الأجر الجاري</div>
+        <div class="section-sub">كل مشروع هو فرصة للتقرب من الله وخدمة المسلمين</div>
+      </div>
+      <div class="proj-flex" id="p-prj-grid"></div>
+    </div>
+  </section>
+
+  <!-- PARTNERS -->
+  <section class="section bg-alt" id="p-par-sec">
+    <div class="section-inner">
+      <div class="section-hd">
+        <div class="section-tag" id="p-par-tag">شركاؤنا في النجاح</div>
+        <div class="section-title" id="p-par-title">نفخر بدعم هذه المؤسسات</div>
+      </div>
+      <div class="partners-flex" id="p-par-grid"></div>
+    </div>
+  </section>
+
+  <!-- NEWS -->
+  <section id="news" class="section" id="p-nws-sec">
+    <div class="section-inner">
+      <div class="section-hd">
+        <div class="section-tag" id="p-nws-tag">أخبار الجمعية</div>
+        <div class="section-title" id="p-nws-title">آخر المستجدات</div>
+      </div>
+      <div class="news-grid-4" id="p-nws-grid"></div>
+    <div class="news-show-all-wrap">
+      <button class="news-show-all-btn" onclick="openAllNews()">📰 عرض كافة الأخبار</button>
+    </div>
+    </div>
+  </section>
+
+  <!-- EVENTS -->
+  <section class="section bg-alt" id="p-evn-sec">
+    <div class="section-inner">
+      <div class="section-hd">
+        <div class="section-tag" id="p-evn-tag">فعاليات الجمعية</div>
+        <div class="section-title" id="p-evn-title">الفعاليات الحالية والقادمة</div>
+      </div>
+      <div class="events-list" id="p-evn-list"></div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section class="section" id="p-tst-sec">
+    <div class="section-inner">
+      <div class="section-hd">
+        <div class="section-tag" id="p-tst-tag">آراء المستفيدين</div>
+        <div class="section-title" id="p-tst-title">ماذا يقولون عنّا</div>
+      </div>
+    </div>
+    <div class="tst-outer">
+      <div class="tst-slider-wrap" id="p-tst-track"></div>
+      <div class="tst-nav">
+        <button class="tst-nav-btn" onclick="tstSlide(-1)">&#8250;</button>
+        <div class="tst-dots" id="p-tst-dots"></div>
+        <button class="tst-nav-btn" onclick="tstSlide(1)">&#8249;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SURVEYS -->
+  <section id="surveys-sec" class="section bg-alt" id="p-sv-sec">
+    <div class="section-inner">
+      <div class="section-hd">
+        <div class="section-tag">استطلاعات الرأي</div>
+        <div class="section-title">شارك برأيك</div>
+        <div class="section-sub">مشاركتك تُحدث فرقاً — رأيك يطور خدماتنا</div>
+      </div>
+      <div class="survey-tabs">
+        <button class="survey-tab on" onclick="showSvTab('list',this)">📋 قائمة الاستطلاعات</button>
+        <button class="survey-tab" onclick="showSvTab('results',this)">📊 النتائج والتحليل</button>
+        <button class="survey-tab" onclick="showSvTab('analysis',this)">🔬 تقارير التحليل</button>
+        <button class="survey-tab" onclick="showSvTab('board',this)">🏛 توصيات المجلس</button>
+      </div>
+      <div id="sv-tab-list"></div>
+      <div id="sv-tab-results" style="display:none"></div>
+      <div id="sv-tab-analysis" style="display:none"></div>
+      <div id="sv-tab-board" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer" id="p-ft-sec">
+    <div class="footer-grid">
+      <div>
+        <div class="ft-brand-icon">🕌</div>
+        <div class="ft-brand-name" id="p-ft-org">جمعية العناية بالمساجد</div>
+        <div class="ft-about" id="p-ft-about">جمعية خيرية غير ربحية مرخصة من وزارة الموارد البشرية.</div>
+        <div class="ft-socials" id="p-socials"></div>
+        <div style="margin-top:12px;font-size:11.5px;color:rgba(255,255,255,.4);">
+          📍 <span id="p-ft-addr">الرياض</span> · 📞 <span id="p-ft-phone">920001234</span>
+        </div>
+      </div>
+      <div>
+        <div class="ft-col-title">روابط سريعة</div>
+        <div id="p-ft-links"></div>
+      </div>
+      <div>
+        <div class="ft-col-title">تواصل معنا</div>
+        <div class="ft-contact">📍 <span id="p-ft-addr2">الرياض، المملكة العربية السعودية</span></div>
+        <div class="ft-contact">📞 <span id="p-ft-phone2">920001234</span></div>
+        <div class="ft-contact">✉ <span id="p-ft-email">info@mosqueksa.org</span></div>
+        <div class="ft-map" id="p-ft-map" onclick="window.open(S.footer.mapUrl,'_blank')">
+          📍 موقعنا على الخريطة<br>
+          <span id="p-ft-map-lbl" style="font-size:10.5px;">الرياض · حي العليا</span><br>
+          <span style="font-size:10px;color:rgba(255,255,255,.25);">انقر للفتح ↗</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 1446 هـ / 2026 م — جمعية العناية بالمساجد</span>
+      <span>جميع الحقوق محفوظة · رقم الترخيص ٤٤٧/ص</span>
+    </div>
+  </footer>
+
+</div><!-- /site-panel -->
+</div><!-- /shell -->
+<div class="custom-page-overlay" id="custom-page-overlay">
+  <div class="custom-page-hdr">
+    <button onclick="closeCustomPage()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:7px;padding:6px 14px;cursor:pointer;font-size:13px;font-family:inherit;">← رجوع</button>
+    <span id="custom-page-hdr-title" style="font-size:16px;font-weight:700;"></span>
+  </div>
+  <div class="custom-page-body" id="custom-page-body"></div>
+</div>
+<div class="cms-standalone" id="cms-standalone">
+  <div class="adm-header">
+    <div class="adm-logo"><div class="adm-logo-icon">🕌</div><div><div class="adm-logo-text"><span id="cms-user-name"></span> لوحة التحكم</div><div class="adm-logo-sub">جمعية العناية بالمساجد</div></div></div>
+    <div class="adm-header-spacer"></div>
+    <span class="adm-badge" id="adm-cur-section">الرئيسية</span>
+    <button class="adm-header-btn adm-save-btn" onclick="saveState(true)">💾 حفظ</button>
+    <button class="adm-header-btn adm-close-btn" onclick="closeCMSStandalone()">✕ خروج</button>
+  </div>
+  <div class="adm-body">
+    <div class="adm-sidebar" id="cms-st-sidebar"></div>
+    <div class="adm-content" id="cms-st-content"></div>
+  </div>
+</div>
+
+
+<!-- ══ صفحة نماذج التسجيل ══ -->
+<div class="reg-form-page" id="reg-form-page">
+  <div class="reg-form-header">
+    <button onclick="closeRegPage()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:7px;padding:6px 14px;cursor:pointer;font-size:13px;font-family:inherit;">← رجوع</button>
+    <span id="reg-page-title" style="font-size:16px;font-weight:700;">📋 نماذج التسجيل</span>
+  </div>
+  <div id="reg-page-body"></div>
+</div>
+
+<!-- ══ صفحة كافة الأخبار ══ -->
+<div class="all-news-page" id="all-news-page">
+  <div class="all-news-header">
+    <button onclick="closeAllNews()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:7px;padding:6px 14px;cursor:pointer;font-size:13px;font-family:inherit;">← رجوع</button>
+    <span style="font-size:16px;font-weight:700;">📰 كافة الأخبار</span>
+  </div>
+  <div class="all-news-grid" id="all-news-grid"></div>
+</div>
+
+<!-- ══ صفحة تفاصيل الخبر ══ -->
+<div class="news-detail-page" id="news-detail-page">
+  <div class="news-detail-header">
+    <button onclick="closeNewsDetail()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:7px;padding:6px 14px;cursor:pointer;font-size:13px;font-family:inherit;">← رجوع</button>
+    <span style="font-size:15px;font-weight:700;">تفاصيل الخبر</span>
+  </div>
+  <div class="news-detail-inner" id="news-detail-inner"></div>
+</div>
+
+<!-- ══ أيقونة واتساب العائمة ══ -->
+<div class="wa-float" id="wa-float" onclick="openWhatsApp()">
+  <div class="wa-btn">
+    <svg viewBox="0 0 24 24" width="30" height="30" fill="white">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </svg>
+  </div>
+  <div class="wa-label" id="wa-label">تواصل معنا</div>
+</div>
+
+<!-- ══ MODAL ══ -->
+<div class="modal-ov" id="modal-ov" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-hd">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div class="modal-tag" id="m-tag"></div>
+      <div class="modal-title" id="m-title"></div>
+      <div class="modal-desc" id="m-desc"></div>
+    </div>
+    <div class="modal-body" id="m-body"></div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+
+<input type="file" id="cp-pdf-input" accept="application/pdf" multiple style="display:none" onchange="cpHandlePdfs(this)">
+<input type="file" id="cp-img-input" accept="image/*" multiple style="display:none" onchange="cpHandleImgs(this)">
+<div class="mob-nav-overlay" id="mob-overlay" onclick="closeMobNav()"></div>
+<div class="mob-nav-drawer" id="mob-drawer">
+  <div class="mob-nav-header">
+    <span style="color:#fff;font-size:14px;font-weight:700">🕌 القائمة</span>
+    <button class="mob-nav-close" onclick="closeMobNav()">✕</button>
+  </div>
+  <div id="mob-nav-items"></div>
+</div>
+
+<div id="cp-upload-overlay" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;background:#fff;border-radius:12px;padding:16px 20px;box-shadow:0 8px 30px rgba(0,0,0,.15);min-width:320px;max-width:480px;border:1px solid #e5e7eb;">
+  <div style="font-size:13px;font-weight:700;color:#0f3d26;margin-bottom:10px;">📤 جارٍ رفع الملفات...</div>
+  <div id="cp-upload-list"></div>
+  <button onclick="document.getElementById('cp-upload-overlay').style.display='none'" style="position:absolute;top:8px;left:12px;background:none;border:none;cursor:pointer;font-size:16px;color:#6b7280;">✕</button>
+</div>
+
+
+<!-- ══ CMS Login Modal ══ -->
+<div id="cms-login-overlay" class="hidden">
+  <div class="cms-login-box">
+    <div class="cms-login-logo">
+      <div style="font-size:40px;">🕌</div>
+      <div class="org-name">لوحة التحكم</div>
+    </div>
+    <div class="cms-login-title">تسجيل الدخول</div>
+    <div class="cms-login-sub">أدخل بيانات الدخول للوحة التحكم</div>
+    <div class="cms-login-error" id="login-error">بيانات الدخول غير صحيحة</div>
+    <div class="cms-login-field">
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="login-email" placeholder="email@example.com" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+    </div>
+    <div class="cms-login-field">
+      <label>كلمة المرور</label>
+      <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="cms-login-btn" onclick="doLogin()" id="login-btn">دخول ←</button>
+    <div class="cms-login-forgot">
+      <a onclick="showForgotPassword()">نسيت كلمة المرور؟</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Maintenance Overlay ══ -->
+<div id="maintenance-overlay" class="hidden">
+  <div class="maint-box">
+    <div class="maint-icon">🔧</div>
+    <div class="maint-title">الموقع قيد الصيانة</div>
+    <div class="maint-msg" id="maint-msg">سنعود قريباً بتحسينات جديدة</div>
+    <div class="maint-countdown" id="maint-countdown"></div>
+  </div>
+</div>
+</body>
+</html>
