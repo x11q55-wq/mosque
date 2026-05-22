@@ -1,3 +1,40 @@
+/* ════════════ SAFE UI HELPERS ════════════ */
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function safeUrl(v){v=String(v||'').trim();return /^\/mosque\/uploads\//.test(v)||/^https:\/\/mnassat\.com\/mosque\/uploads\//.test(v)?v:'';}
+function fileIconByName(name){var n=String(name||'').toLowerCase();return /\.(jpg|jpeg|png|gif|webp)$/.test(n)?'🖼':'📄';}
+function parseMaybeJson(v){if(typeof v==='string'){try{return JSON.parse(v);}catch(e){return v;}}return v;}
+function renderFileValue(v){
+  v=parseMaybeJson(v);
+  if(Array.isArray(v)) return v.map(renderFileValue).join('');
+  if(v&&typeof v==='object'){
+    var url=safeUrl(v.url||v.path||'');var name=esc(v.name||'مرفق');var size=v.size?'<span style="color:#6b7280;font-size:11px;"> · '+esc(v.size)+'</span>':'';
+    if(url) return '<a href="'+esc(url)+'" target="_blank" rel="noopener" class="entry-file-link">'+fileIconByName(name)+' '+name+size+'</a>';
+    return '<span class="entry-file-missing">'+fileIconByName(name)+' '+name+'</span>';
+  }
+  var s=String(v==null?'':v);
+  var url=safeUrl(s);
+  if(url) return '<a href="'+esc(url)+'" target="_blank" rel="noopener" class="entry-file-link">📎 '+esc(s.split('/').pop())+'</a>';
+  return esc(s);
+}
+function renderEntryValue(v){
+  var parsed=parseMaybeJson(v);
+  if(parsed&&typeof parsed==='object') return renderFileValue(parsed);
+  return esc(v);
+}
+function uploadEntryFile(file){
+  var fd=new FormData();fd.append('file',file);fd.append('scope','entry');
+  return fetch('/mosque/api/upload_file.php',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(res){
+    if(res&&res.success&&res.url){return {name:file.name,size:(file.size/1024/1024).toFixed(1)+' MB',url:res.url,mime:res.mime||''};}
+    throw new Error(res&&res.error||'upload failed');
+  });
+}
+function newsDateValue(n){
+  var s=String((n&&n.date)||'');var months={'يناير':1,'فبراير':2,'مارس':3,'أبريل':4,'ابريل':4,'مايو':5,'يونيو':6,'يوليو':7,'أغسطس':8,'اغسطس':8,'سبتمبر':9,'أكتوبر':10,'اكتوبر':10,'نوفمبر':11,'ديسمبر':12};
+  var m=s.match(/(\d{1,2})\s+([^\s]+)\s+(\d{4})/);if(m){return new Date(parseInt(m[3],10), (months[m[2]]||1)-1, parseInt(m[1],10)).getTime();}
+  var d=Date.parse(s);return isNaN(d)?0:d;
+}
+function sortedNewsItems(){return (S.news||[]).map(function(n,i){return {n:n,idx:i,t:newsDateValue(n)};}).sort(function(a,b){return (b.t-a.t)||(b.idx-a.idx);});}
+
 /* ════════════ RENDER ════════════ */
 function renderAll(){
   renderNav(); renderHeroStats(); renderHeroCard();
@@ -82,9 +119,9 @@ function renderPartners(){
 }
 function renderNews(){
   const g=document.getElementById('p-nws-grid');if(!g)return;
-  /* عرض 4 أخبار فقط في الصفحة الرئيسية */
-  const displayed = S.news.slice(0,4);
-  g.innerHTML = displayed.map((n,i) => newsCardHTML(n,i)).join('');
+  /* عرض أحدث 4 أخبار في الصفحة الرئيسية */
+  const displayed = sortedNewsItems().slice(0,4);
+  g.innerHTML = displayed.map(item => newsCardHTML(item.n,item.idx)).join('');
 }
 
 function newsCardHTML(n, idx){
@@ -109,7 +146,7 @@ function openAllNews(){
   const page = document.getElementById('all-news-page');
   const grid = document.getElementById('all-news-grid');
   if(!page||!grid) return;
-  grid.innerHTML = S.news.map((n,i) => newsCardHTML(n,i)).join('');
+  grid.innerHTML = sortedNewsItems().map(item => newsCardHTML(item.n,item.idx)).join('');
   page.classList.add('open');
   document.body.style.overflow='hidden';
 }
@@ -235,101 +272,19 @@ function renderSurveyList(){
     </div>
   </div>`).join('')}</div>`;
 }
-function renderSurveyResults(){
-  var el=document.getElementById('sv-tab-results');if(!el)return;
-  var surveys=S.surveys||[];
-  if(!surveys.length){el.innerHTML='<div style="text-align:center;padding:32px;color:#888;">لا توجد استطلاعات حتى الآن</div>';return;}
-  var opts=surveys.map(function(s){return '<option value="'+s.id+'">'+s.title+'</option>';}).join('');
-  el.innerHTML='<div style="margin-bottom:16px;"><select id="sv-res-select" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--BD);font-family:Tajawal,sans-serif;font-size:14px;background:var(--W);" onchange="loadSurveyResults(this.value)">'+opts+'</select></div><div id="sv-res-body"></div>';
-  loadSurveyResults(surveys[0].id);
-}
-function loadSurveyResults(svId){
-  var body=document.getElementById('sv-res-body');if(!body)return;
-  var svObj=S.surveys.find(function(x){return x.id===svId;})||{};
-  body.innerHTML='<div style="text-align:center;padding:24px;color:#888;">⏳ جارٍ تحميل...</div>';
-  fetch('/mosque/api/registration_entry.php?form_key='+encodeURIComponent('survey_'+svId)+'&per_page=9999')
-  .then(function(r){return r.json();})
-  .then(function(res){
-    var entries=res.entries||[];var total=res.total||0;var questions=svObj.questions||[];
-    if(total===0){body.innerHTML='<div style="text-align:center;padding:32px;background:#f9fafb;border-radius:12px;color:#888;"><div style="font-size:40px;margin-bottom:12px;">📭</div><div style="font-size:16px;font-weight:700;color:#444;margin-bottom:6px;">لا توجد إجابات بعد</div><div>لم يُجب أحد على هذا الاستطلاع حتى الآن</div></div>';return;}
-    var qStats={};
-    questions.forEach(function(q){qStats[q.text]={opts:{},total:0,type:q.type,optsOrder:q.opts||[]};});
-    entries.forEach(function(e){var d=e.entry_data||{};Object.keys(d).forEach(function(qt){if(!qStats[qt])qStats[qt]={opts:{},total:0,type:'text',optsOrder:[]};var a=d[qt];if(a){qStats[qt].total++;qStats[qt].opts[a]=(qStats[qt].opts[a]||0)+1;}});});
-    var cols=['#0f3d26','#c9a227','#22c55e','#3b82f6','#f97316','#e24b4a'];
-    var h='<div class="kpi-row"><div class="kpi"><div class="kpi-lbl">إجمالي المشاركين</div><div class="kpi-val" style="color:var(--P)">'+total+'</div><div class="kpi-sub">إجابة</div></div>';
-    h+='<div class="kpi a"><div class="kpi-lbl">عدد الأسئلة</div><div class="kpi-val" style="color:var(--A)">'+questions.length+'</div><div class="kpi-sub">سؤال</div></div>';
-    h+='<div class="kpi b"><div class="kpi-lbl">آخر استجابة</div><div class="kpi-val" style="color:#378ADD;font-size:13px;">'+(entries.length?entries[0].submitted_at.substring(0,10):'—')+'</div><div class="kpi-sub"> </div></div></div>';
-    Object.keys(qStats).forEach(function(qt){
-      var st=qStats[qt];var so=st.optsOrder.length?st.optsOrder:Object.keys(st.opts);
-      h+='<div class="res-card"><div class="res-q">📊 '+qt+'</div>';
-      if(st.type==='text'){h+='<div style="background:#f9fafb;border-radius:8px;padding:12px;max-height:200px;overflow-y:auto;">';entries.forEach(function(e){var a=(e.entry_data||{})[qt];if(a)h+='<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:13px;">💬 '+a+'</div>';});h+='</div>';}
-      else{so.forEach(function(o,i){var c=st.opts[o]||0;var p=st.total>0?Math.round(c/st.total*100):0;h+='<div class="bar-row"><div class="bar-lbl">'+o+'</div><div class="bar-track"><div class="bar-fill" style="width:'+p+'%;background:'+cols[i%cols.length]+'">'+p+'%</div></div><div class="bar-cnt">'+c+'</div></div>';});
-      if(st.total>0){var top=Object.keys(st.opts).sort(function(a,b){return st.opts[b]-st.opts[a];})[0];var tp=Math.round((st.opts[top]||0)/st.total*100);h+='<div class="insight"><div class="insight-title">💡 التحليل</div><div class="insight-txt">الأكثر شيوعاً: "'+top+'" بنسبة '+tp+'%</div></div>';}}
-      h+='</div>';
-    });
-    body.innerHTML=h;
-  }).catch(function(){body.innerHTML='<div style="color:#dc2626;padding:16px;">❌ تعذّر تحميل النتائج</div>';});
-}
-function renderAnalysis(){
-  const el=document.getElementById('sv-tab-analysis');if(!el)return;
-  el.innerHTML=S.analysisReports.map(r=>`<div class="analysis-card">
-    <div class="ac-title">${r.title}</div>
-    <div class="ac-meta">📅 ${r.date} · ${r.survey}</div>
-    <div class="ac-text">${r.text}</div>
-    ${r.pdfs.map(f=>`<div class="pdf-row"><div class="pdf-icon">📄</div><div class="pdf-info"><div class="pdf-name">${f.name}</div><div class="pdf-size">PDF · ${f.size}</div></div><div class="pdf-btns"><button class="pdf-btn pdf-prev" onclick="toast('معاينة: ${f.name}')">👁 معاينة</button><button class="pdf-btn pdf-dl" onclick="toast('تحميل: ${f.name}')">⬇ تحميل</button></div></div>`).join('')}
-  </div>`).join('');
-}
-function renderBoard(){
-  const typeL={rec:'توصية',dec:'قرار',act:'إجراء'};
-  const el=document.getElementById('sv-tab-board');if(!el)return;
-  el.innerHTML=S.boardDecisions.map(d=>`<div class="dec-card ${d.type}">
-    <span class="dec-type ${d.type}">${typeL[d.type]}</span>
-    <div class="dec-title">${d.title}</div>
-    <div class="dec-meta">📅 ${d.date} · المسؤول: ${d.resp} · الموعد: ${d.deadline}</div>
-    <div class="dec-body">${d.body}</div>
-    ${d.files.map(f=>`<div class="pdf-row" style="margin-top:10px;"><div class="pdf-icon">📄</div><div class="pdf-info"><div class="pdf-name">${f.name}</div><div class="pdf-size">${f.size}</div></div><button class="pdf-btn pdf-dl" onclick="toast('تحميل...')">⬇</button></div>`).join('')}
-  </div>`).join('');
-}
-function renderFooter(){
-  const f=S.footer;
-  const txt=id=>document.getElementById(id);
-  if(txt('p-ft-about'))txt('p-ft-about').textContent=f.about;
-  if(txt('p-ft-org'))txt('p-ft-org').textContent=S.nav.orgName;
-  if(txt('p-ft-addr'))txt('p-ft-addr').textContent=f.address.split('،')[0];
-  if(txt('p-ft-addr2'))txt('p-ft-addr2').textContent=f.address;
-  if(txt('p-ft-phone'))txt('p-ft-phone').textContent=f.phone;
-  if(txt('p-ft-phone2'))txt('p-ft-phone2').textContent=f.phone;
-  if(txt('p-ft-email'))txt('p-ft-email').textContent=f.email;
-  if(txt('p-ft-map-lbl'))txt('p-ft-map-lbl').textContent=f.mapLabel;
-  const sl=document.getElementById('p-socials');
-  if(sl)sl.innerHTML=f.socials.map(s=>`<div class="ft-soc" onclick="toast('${s.label}: ${s.url}')">${s.icon}</div>`).join('');
-  const ll=document.getElementById('p-ft-links');
-  if(ll)ll.innerHTML=(f.links||[]).map(function(l){
-    var action;
-    if(l.page&&l.page.indexOf('cp:')===0){
-      action='openCustomPage(this.dataset.cpid)';
-    } else if(l.page){
-      action="showPage('"+l.page+"')";
-    } else {
-      action="scrollSec('"+(l.url||'#')+"')";
-    }
-    var cpid = (l.page&&l.page.indexOf('cp:')===0) ? l.page.replace('cp:','') : '';
-    return '<div class="ft-link" data-cpid="'+cpid+'" onclick="'+action+'">'+l.label+'</div>';
-  }).join('');
-}
 
 /* ════════════ SURVEY MODAL ════════════ */
 function openSurvey(id){
   window._currentSurveyId=id;
-  const s=S.surveys.find(x=>x.id===id);if(!s)return;
+  const s=(S.surveys||[]).find(x=>String(x.id)===String(id));if(!s)return;
   if(s.status==='closed'){toast('هذا الاستطلاع مغلق حالياً');return;}
-  document.getElementById('m-tag').textContent=s.cat;
-  document.getElementById('m-title').textContent=s.title;
-  document.getElementById('m-desc').textContent=s.desc+' · '+s.questions.length+' أسئلة';
+  document.getElementById('m-tag').textContent=s.cat||'';
+  document.getElementById('m-title').textContent=s.title||'';
+  document.getElementById('m-desc').textContent=(s.desc||'')+' · '+((s.questions||[]).length)+' أسئلة';
   document.getElementById('m-body').innerHTML=
-    s.questions.map((q,i)=>`<div class="q-block">
+    (s.questions||[]).map((q,i)=>`<div class="q-block">
       <div class="q-lbl">سؤال ${i+1}${q.required?' <span class="q-req">*</span>':''}</div>
-      <div class="q-txt">${q.text}</div>
+      <div class="q-txt">${esc(q.text)}</div>
       ${renderQInput(q)}
     </div>`).join('')+
     `<button class="submit-btn" onclick="submitSurvey()">إرسال الاستطلاع ✓</button>`;
@@ -341,48 +296,135 @@ function renderQInput(q){
   if(q.type==='likert'||q.type==='radio'||q.type==='choice'){
     var cls=q.type==='likert'?'lik-opt':'rad-opt';
     var row=q.type==='likert'?'lik-row':'rad-row';
-    return'<div class="'+row+'">'+opts.map(function(o){return'<div class="'+cls+'" onclick="selOpt(this,\''+q.type+'\')">'+o+'</div>';}).join('')+'</div>';
+    return'<div class="'+row+'">'+opts.map(function(o){return'<div class="'+cls+'" onclick="selOpt(this,\''+q.type+'\')">'+esc(o)+'</div>';}).join('')+'</div>';
   }
-  if(q.type==='checkbox'){return'<div class="chk-row">'+opts.map(function(o){return'<label class="chk-opt"><input type="checkbox" class="chk-inp" value="'+o+'" style="margin-left:6px;accent-color:var(--P);width:16px;height:16px;cursor:pointer;"> '+o+'</label>';}).join('')+'</div>';}
-  if(q.type==='dropdown'){return'<select class="q-select"><option>اختر...</option>'+opts.map(function(o){return'<option>'+o+'</option>';}).join('')+'</select>';}
+  if(q.type==='checkbox'){return'<div class="chk-row">'+opts.map(function(o){return'<label class="chk-opt"><input type="checkbox" class="chk-inp" value="'+esc(o)+'" style="margin-left:6px;accent-color:var(--P);width:16px;height:16px;">'+esc(o)+'</label>';}).join('')+'</div>';}
+  if(q.type==='dropdown'){return'<select class="q-select"><option>اختر...</option>'+opts.map(function(o){return'<option>'+esc(o)+'</option>';}).join('')+'</select>';}
   if(q.type==='text'){return'<textarea class="q-textarea" placeholder="اكتب إجابتك هنا..."></textarea>';}
-  if(q.type==='file'){return'<div class="file-upload-area" style="border:2px dashed var(--A);border-radius:10px;padding:20px;text-align:center;background:#fffef8;position:relative;overflow:hidden;"><input type="file" accept="*/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:3;" onchange="var d=this.parentElement.querySelector(\'.fu-lbl\');if(d&&this.files[0])d.textContent=\'✅ \'+this.files[0].name;"><div style="font-size:28px;margin-bottom:6px;pointer-events:none;">📎</div><div class="fu-lbl" style="font-size:13px;color:var(--TXM);pointer-events:none;">انقر لرفع الملف أو الصورة</div><div style="font-size:11px;color:#aaa;margin-top:4px;pointer-events:none;">PDF · صورة · 10MB كحد أقصى</div></div>';}
+  if(q.type==='file'){return'<div class="file-upload-area" style="border:2px dashed var(--A);border-radius:10px;padding:20px;text-align:center;background:#fffef8;position:relative;overflow:hidden;"><input type="file" accept=".pdf,image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;" onchange="this.parentElement.querySelector(\'.file-name\').textContent=this.files.length?this.files[0].name:\'لم يتم اختيار ملف\'"><div style="font-size:24px;margin-bottom:6px;">📎</div><div class="file-name" style="font-size:12px;color:var(--TXM);">اضغط لاختيار مرفق PDF أو صورة</div></div>';}
   return '';
 }
 function selOpt(el,t){el.parentElement.querySelectorAll('.lik-opt,.rad-opt').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');}
-function submitSurvey(){
+async function submitSurvey(){
   var svId=window._currentSurveyId||'';
-  var svObj=S.surveys.find(function(x){return x.id===svId;})||{};
+  var svObj=(S.surveys||[]).find(function(x){return String(x.id)===String(svId);})||{};
   var svTitle=svObj.title||'استطلاع';
   var answers={};
   var qBlocks=document.querySelectorAll('#m-body .q-block');
-  qBlocks.forEach(function(block,idx){
-    var q=svObj.questions&&svObj.questions[idx];
-    var qText=q?q.text:('سؤال '+(idx+1));
-    var qType=q?q.type:'text';
-    var ans='';
-    if(qType==='text'){var ta=block.querySelector('.q-textarea');if(ta)ans=ta.value;}
-    else if(qType==='radio'||qType==='likert'){var s1=block.querySelector('.rad-opt.sel,.lik-opt.sel');if(s1)ans=s1.textContent;}
-    else if(qType==='checkbox'){var checked=block.querySelectorAll('.chk-inp:checked');ans=Array.from(checked).map(function(c){return c.value;}).join(' | ');}
-    else if(qType==='dropdown'){var s2=block.querySelector('.q-select');if(s2&&s2.value!=='اختر...')ans=s2.value;}
-    else if(qType==='file'){var fi=block.querySelector('input[type=file]');if(fi&&fi.files.length)ans='[ملف: '+fi.files[0].name+']';}
-    answers[qText]=ans;
-  });
-  fetch('/mosque/api/registration_entry.php',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({form_key:'survey_'+svId,form_label:svTitle,data:answers})
-  }).catch(function(){});
-  if(S.surveyResults){S.surveyResults.total=(S.surveyResults.total||0)+1;}
-  document.getElementById('m-body').innerHTML=`<div class="success-box">
-    <div class="success-icon">✅</div>
-    <div class="success-title">تم استلام إجاباتك بنجاح!</div>
-    <div class="success-sub">شكراً لمشاركتك — رأيك يُحدث فرقاً حقيقياً في تطوير خدماتنا.</div>
-    <button class="btn-primary" style="margin-top:20px;" onclick="closeModal();showSvTab('results',null);scrollSec('surveys-sec')">عرض النتائج ←</button>
-  </div>`;
+  var submitBtn=document.querySelector('#m-body .submit-btn');
+  if(submitBtn){submitBtn.disabled=true;submitBtn.textContent='جارٍ الإرسال...';}
+  try{
+    for(var idx=0;idx<qBlocks.length;idx++){
+      var block=qBlocks[idx];
+      var q=svObj.questions&&svObj.questions[idx];
+      var qText=q?q.text:('سؤال '+(idx+1));
+      var qType=q?q.type:'text';
+      var ans='';
+      if(qType==='text'){var ta=block.querySelector('.q-textarea');if(ta)ans=ta.value;}
+      else if(qType==='radio'||qType==='likert'){var s1=block.querySelector('.rad-opt.sel,.lik-opt.sel');if(s1)ans=s1.textContent;}
+      else if(qType==='checkbox'){var checked=block.querySelectorAll('.chk-inp:checked');ans=Array.from(checked).map(function(c){return c.value;}).join(' | ');}
+      else if(qType==='dropdown'){var s2=block.querySelector('.q-select');if(s2&&s2.value!=='اختر...')ans=s2.value;}
+      else if(qType==='file'){
+        var fi=block.querySelector('input[type=file]');
+        if(fi&&fi.files.length) ans=await uploadEntryFile(fi.files[0]);
+      }
+      answers[qText]=ans;
+    }
+    await fetch('/mosque/api/registration_entry.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_key:'survey_'+svId,form_label:svTitle,data:answers})});
+    if(S.surveyResults){S.surveyResults.total=(S.surveyResults.total||0)+1;}
+    document.getElementById('m-body').innerHTML=`<div class="success-box">
+      <div class="success-icon">✅</div>
+      <div class="success-title">تم استلام إجاباتك بنجاح!</div>
+      <div class="success-sub">شكراً لمشاركتك — رأيك يُحدث فرقاً حقيقياً في تطوير خدماتنا.</div>
+      <button class="btn-primary" style="margin-top:20px;" onclick="closeModal();showSvTab('results',null);scrollSec('surveys-sec')">عرض النتائج ←</button>
+    </div>`;
+  }catch(e){
+    toast('تعذر إرسال المرفق أو الاستطلاع، حاول مرة أخرى');
+    if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='إرسال الاستطلاع ✓';}
+  }
 }
 function closeModal(e){if(e&&e.target!==document.getElementById('modal-ov'))return;document.getElementById('modal-ov').classList.remove('open');document.body.style.overflow='';}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
-/* ════════════ TABS ════════════ */
+function renderSurveyResults(){
+  var el=document.getElementById('sv-tab-results');if(!el)return;
+  var surveys=S.surveys||[];
+  if(!surveys.length){el.innerHTML='<div style="text-align:center;padding:32px;color:#888;">لا توجد استطلاعات حتى الآن</div>';return;}
+  var opts=surveys.map(function(s){return '<option value="'+s.id+'">'+s.title+'</option>';}).join('');
+  el.innerHTML='<div style="margin-bottom:16px;"><select id="sv-res-select" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--BD);font-family:Tajawal,sans-serif;font-size:14px;background:var(--W);" onchange="loadSurveyResults(this.value)">'+opts+'</select></div><div id="sv-res-body"></div>';
+  loadSurveyResults(surveys[0].id);
+}
+function loadSurveyResults(svId){
+  var body=document.getElementById('sv-res-body');if(!body)return;
+  var svObj=(S.surveys||[]).find(function(x){return String(x.id)===String(svId);})||{};
+  body.innerHTML='<div style="text-align:center;padding:24px;color:#888;">⏳ جارٍ تحميل...</div>';
+  var headers={}; var tok=getCmsToken(); if(tok) headers['X-CMS-Token']=tok;
+  fetch('/mosque/api/registration_entry.php?form_key='+encodeURIComponent('survey_'+svId)+'&per_page=9999',{headers:headers})
+  .then(function(r){return r.json();})
+  .then(function(res){
+    var entries=res.entries||[];var total=res.total||0;var questions=svObj.questions||[];
+    if(total===0){body.innerHTML='<div style="text-align:center;padding:32px;background:#f9fafb;border-radius:12px;color:#888;"><div style="font-size:40px;margin-bottom:12px;">📭</div><div style="font-size:16px;font-weight:700;">لا توجد إجابات بعد</div></div>';return;}
+    var qStats={}; questions.forEach(function(q){qStats[q.text]={opts:{},total:0,type:q.type,optsOrder:q.opts||[]};});
+    entries.forEach(function(e){var d=e.entry_data||{};Object.keys(d).forEach(function(qt){if(!qStats[qt])qStats[qt]={opts:{},total:0,type:'text',optsOrder:[]};var a=parseMaybeJson(d[qt]);if(a!==''&&a!=null){qStats[qt].total++;if(qStats[qt].type!=='text'&&qStats[qt].type!=='file'){var key=String(a);qStats[qt].opts[key]=(qStats[qt].opts[key]||0)+1;}}});});
+    var h='<div class="kpi-row"><div class="kpi"><div class="kpi-lbl">إجمالي المشاركين</div><div class="kpi-val" style="color:var(--P)">'+total+'</div><div class="kpi-sub">إجابة</div></div>';
+    h+='<div class="kpi a"><div class="kpi-lbl">عدد الأسئلة</div><div class="kpi-val" style="color:var(--A)">'+questions.length+'</div><div class="kpi-sub">سؤال</div></div>';
+    h+='<div class="kpi b"><div class="kpi-lbl">آخر استجابة</div><div class="kpi-val" style="color:#378ADD;font-size:13px;">'+(entries.length?esc(String(entries[0].submitted_at||'').substring(0,10)):'—')+'</div><div class="kpi-sub"> </div></div></div>';
+    Object.keys(qStats).forEach(function(qt){
+      var st=qStats[qt];var so=st.optsOrder.length?st.optsOrder:Object.keys(st.opts);
+      h+='<div class="res-card"><div class="res-q">📊 '+esc(qt)+'</div>';
+      if(st.type==='text'||st.type==='file'){
+        h+='<div style="background:#f9fafb;border-radius:8px;padding:12px;max-height:260px;overflow-y:auto;">';
+        entries.forEach(function(e){var a=(e.entry_data||{})[qt];if(a){h+='<div style="padding:8px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;align-items:flex-start;"><div style="flex:1;color:#374151;line-height:1.7;">'+renderEntryValue(a)+'</div>'+((typeof IS_ADMIN!=='undefined'&&IS_ADMIN)||getCmsToken()?'<button class="delbtn" title="حذف هذه الإجابة" onclick="deleteSurveyAnswer('+e.id+',\''+encodeURIComponent(qt)+'\',\''+svId+'\')">🗑</button>':'')+'</div>';}});
+        h+='</div>';
+      } else {
+        so.forEach(function(o){var c=st.opts[o]||0;var p=st.total>0?Math.round(c/st.total*100):0;h+='<div class="bar-row"><div class="bar-lbl">'+esc(o)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+p+'%"></div></div><div class="bar-pct">'+p+'%</div></div>';});
+        if(st.total>0){var top=Object.keys(st.opts).sort(function(a,b){return st.opts[b]-st.opts[a];})[0];var tp=Math.round((st.opts[top]||0)/st.total*100);h+='<div class="insight"><div class="insight-title">💡 التحليل</div><div class="insight-txt">الخيار الأعلى: '+esc(top)+' بنسبة '+tp+'%</div></div>';}
+      }
+      h+='</div>';
+    });
+    body.innerHTML=h;
+  }).catch(function(){body.innerHTML='<div style="color:#dc2626;padding:16px;">❌ تعذّر تحميل النتائج</div>';});
+}
+function deleteSurveyAnswer(entryId, encodedQuestion, svId){
+  var question=decodeURIComponent(encodedQuestion||'');
+  if(!entryId||!question) return;
+  if(!confirm('حذف هذه الإجابة من النتائج؟')) return;
+  fetch('/mosque/api/registration_entry.php',{method:'DELETE',headers:cmsAuthHeaders({'Content-Type':'application/json'}),body:JSON.stringify({id:entryId,field:question})})
+  .then(function(r){return r.json();}).then(function(res){toast(res&&res.success?'تم الحذف ✓':'تعذر الحذف');loadSurveyResults(svId);}).catch(function(){toast('تعذر الحذف');});
+}
+
+function renderAnalysis(){
+  const el=document.getElementById('sv-tab-analysis');if(!el)return;
+  var reports=S.analysisReports||[];
+  if(!reports.length){el.innerHTML='<div style="text-align:center;padding:28px;color:#888;background:#f9fafb;border-radius:12px;">لا توجد تقارير تحليل منشورة حالياً</div>';return;}
+  el.innerHTML=reports.map(function(r){
+    var files=(r.files||r.pdfs||[]);
+    return '<div class="analysis-card">'
+      +'<div class="ac-title">'+esc(r.title||'تقرير تحليل')+'</div>'
+      +'<div class="ac-meta">📅 '+esc(r.date||'')+(r.survey?' · استطلاع: '+esc(r.survey):'')+'</div>'
+      +(r.text?'<div class="ac-text">'+esc(r.text)+'</div>':'')
+      +files.map(function(f){return '<div class="pdf-row"><div class="pdf-icon">'+fileIconByName(f.name||f.url)+'</div><div class="pdf-info"><div class="pdf-name">'+esc(f.name||'مرفق')+'</div><div class="pdf-size">'+esc(f.size||'')+'</div></div><div class="pdf-btns"><a class="pdf-open" href="'+esc(safeUrl(f.url))+'" target="_blank" rel="noopener">فتح</a></div></div>';}).join('')
+      +'</div>';
+  }).join('');
+}
+
+function renderBoard(){
+  const typeL={rec:'توصية',dec:'قرار',act:'إجراء'};
+  const el=document.getElementById('sv-tab-board');if(!el)return;
+  var rows=S.boardDecisions||[];
+  if(!rows.length){el.innerHTML='<div style="text-align:center;padding:28px;color:#888;background:#f9fafb;border-radius:12px;">لا توجد توصيات منشورة حالياً</div>';return;}
+  el.innerHTML=rows.map(function(d){
+    var files=d.files||[];
+    return '<div class="dec-card '+esc(d.type||'rec')+'">'
+      +'<span class="dec-type '+esc(d.type||'rec')+'">'+esc(typeL[d.type]||'توصية')+'</span>'
+      +'<div class="dec-title">'+esc(d.title||'توصية')+'</div>'
+      +'<div class="dec-meta">'+(d.survey?'📋 الاستطلاع: '+esc(d.survey)+' · ':'')+'📅 '+esc(d.date||'')+(d.resp?' · المسؤول: '+esc(d.resp):'')+(d.deadline?' · الموعد: '+esc(d.deadline):'')+'</div>'
+      +(d.body?'<div class="dec-body">'+esc(d.body)+'</div>':'')
+      +files.map(function(f){return '<div class="pdf-row" style="margin-top:10px;"><div class="pdf-icon">📄</div><div class="pdf-info"><div class="pdf-name">'+esc(f.name||'ملف توصية')+'</div><div class="pdf-size">'+esc(f.size||'')+'</div></div><a class="pdf-open" href="'+esc(safeUrl(f.url))+'" target="_blank" rel="noopener">فتح</a></div>';}).join('')
+      +'</div>';
+  }).join('');
+}
+
 function showSvTab(tab,btn){
   ['list','results','analysis','board'].forEach(t=>{
     const el=document.getElementById('sv-tab-'+t);
@@ -1131,7 +1173,10 @@ ${S.analysisReports.map((r,i)=>`
   <input class="is" value="${r.title}" placeholder="عنوان التقرير" oninput="S.analysisReports[${i}].title=this.value">
   <div class="g2" style="margin-top:4px;">
     <input class="is" value="${r.date||''}" placeholder="التاريخ" oninput="S.analysisReports[${i}].date=this.value">
-    <input class="is" value="${r.survey||''}" placeholder="الاستطلاع المرتبط" oninput="S.analysisReports[${i}].survey=this.value">
+    <select class="is" onchange="S.analysisReports[${i}].survey=this.value;renderAnalysis();">
+      <option value="">— اختر الاستطلاع المرتبط —</option>
+      ${(S.surveys||[]).map(sv=>`<option value="${sv.title}" ${r.survey===sv.title?'selected':''}>${sv.title}</option>`).join('')}
+    </select>
   </div>
   <textarea class="is" style="min-height:50px;margin-top:4px;" placeholder="نص التحليل..." oninput="S.analysisReports[${i}].text=this.value">${r.text||''}</textarea>
   <div style="margin-top:5px;">
@@ -1141,7 +1186,7 @@ ${S.analysisReports.map((r,i)=>`
       <button class="delbtn" onclick="S.analysisReports[${i}].pdfs.splice(${k},1);G('surveys')">✕</button>
     </div>`).join('')}
     <div style="border:1.5px dashed var(--A);border-radius:6px;padding:8px;text-align:center;cursor:pointer;font-size:10.5px;color:var(--TXM);" onclick="arUploadPdf(${i})">
-      📎 انقر لرفع ملف PDF — سيظهر في قسم التقارير بالموقع
+      📎 انقر لرفع ملف PDF أو صورة — سيظهر في قسم التقارير بالموقع
     </div>
   </div>
 </div>`).join('')}
@@ -1158,7 +1203,7 @@ ${S.boardDecisions.map((d,i)=>`
   <div class="fg" style="margin-bottom:6px;">
     <label style="font-size:9px;color:var(--TXM);font-weight:700;">📋 الاستطلاع المرتبط بهذه التوصية</label>
     <select class="is" style="margin:0;border-color:var(--A);" onchange="S.boardDecisions[${i}].survey=this.value;saveState();">
-      <option value="">— توصية عامة (بدون ارتباط) —</option>
+      <option value="">— اختر استطلاعاً —</option>
       ${(S.surveys||[]).map(sv=>`<option value="${sv.title}" ${d.survey===sv.title?'selected':''}>${sv.title}</option>`).join('')}
     </select>
     <div style="font-size:9px;color:var(--TXM);margin-top:2px;">ستظهر التوصية تحت اسم الاستطلاع في الموقع</div>
@@ -1181,13 +1226,13 @@ ${S.boardDecisions.map((d,i)=>`
   </div>
   <textarea class="is" style="min-height:45px;margin-top:4px;" placeholder="نص التوصية..." oninput="S.boardDecisions[${i}].body=this.value;renderBoard()">${d.body||''}</textarea>
   <div style="margin-top:5px;">
-    <label style="font-size:9px;color:var(--TXM);">مرفقات (PDF)</label>
+    <label style="font-size:9px;color:var(--TXM);">مرفق التوصية (PDF)</label>
     ${(d.files||[]).map((f,k)=>`<div style="display:flex;align-items:center;gap:4px;padding:4px;background:var(--BG);border-radius:5px;margin-bottom:3px;">
       <span style="font-size:10px;flex:1;">📄 ${f.name||f}</span>
       <button class="delbtn" onclick="S.boardDecisions[${i}].files.splice(${k},1);G('surveys')">✕</button>
     </div>`).join('')}
     <div style="border:1.5px dashed var(--A);border-radius:6px;padding:8px;text-align:center;cursor:pointer;font-size:10.5px;color:var(--TXM);" onclick="bdUploadFile(${i})">
-      📎 انقر لرفع مرفق — سيظهر مع التوصية في الموقع
+      📎 انقر لرفع ملف PDF — سيظهر مع التوصية في الموقع
     </div>
   </div>
 </div>`).join('')}
@@ -1239,7 +1284,7 @@ function svDelQ(i,j){S.surveys[i].questions.splice(j,1);G('surveys');setTimeout(
 function svAddOpt(i,j){if(!S.surveys[i].questions[j].opts)S.surveys[i].questions[j].opts=[];S.surveys[i].questions[j].opts.push('خيار جديد');G('surveys');}
 function svDelOpt(i,j,k){S.surveys[i].questions[j].opts.splice(k,1);G('surveys');}
 /* دوال التقارير */
-function arAdd(){if(!S.analysisReports)S.analysisReports=[];S.analysisReports.push({title:'تقرير تحليل جديد',date:'',survey:'',text:'',pdfs:[]});G('surveys');setTimeout(function(){var x=document.querySelectorAll('#pnl-surveys .ibox');var L=null;x.forEach(function(b){L=b;});if(L){L.classList.add('open');L.scrollIntoView({behavior:'smooth',block:'nearest'});}},80);saveState();toast('تمت إضافة التقرير ✓');}
+function arAdd(){if(!S.analysisReports)S.analysisReports=[];S.analysisReports.push({title:'تقرير تحليل جديد',date:'',survey:'',text:'',pdfs:[],files:[]});G('surveys');setTimeout(function(){var x=document.querySelectorAll('#pnl-surveys .ibox');var L=null;x.forEach(function(b){L=b;});if(L){L.classList.add('open');L.scrollIntoView({behavior:'smooth',block:'nearest'});}},80);saveState();toast('تمت إضافة التقرير ✓');}
 function arUploadPdf(i){
   var inp=document.createElement('input');
   inp.type='file';inp.accept='.pdf,image/*';
@@ -1252,7 +1297,10 @@ function arUploadPdf(i){
     .then(function(r){return r.json();})
     .then(function(res){
       if(res.success&&res.url){
-        S.analysisReports[i].pdfs.push({name:f.name,size:(f.size/1024/1024).toFixed(1)+' MB',url:res.url});
+        var item={name:f.name,size:(f.size/1024/1024).toFixed(1)+' MB',url:res.url,mime:res.mime||''};
+        S.analysisReports[i].pdfs.push(item);
+        if(!S.analysisReports[i].files)S.analysisReports[i].files=[];
+        S.analysisReports[i].files.push(item);
         saveState();
         toast('تم رفع الملف ✓');
         G('surveys');
@@ -1266,13 +1314,19 @@ function arUploadPdf(i){
 /* دوال التوصيات */
 function bdAdd(){if(!S.boardDecisions)S.boardDecisions=[];S.boardDecisions.push({type:'rec',title:'توصية جديدة',date:'',survey:'',resp:'',deadline:'',body:'',files:[]});G('surveys');setTimeout(function(){var x=document.querySelectorAll('#pnl-surveys .ibox');var L=null;x.forEach(function(b){L=b;});if(L){L.classList.add('open');L.scrollIntoView({behavior:'smooth',block:'nearest'});}},80);saveState();toast('تمت إضافة التوصية ✓');}
 function bdUploadFile(i){
-  const inp=document.createElement('input');inp.type='file';inp.accept='.pdf,.doc,.docx';
-  inp.onchange=e=>{if(e.target.files[0]){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.pdf';
+  inp.onchange=function(e){
+    var f=e.target.files[0];if(!f)return;
     if(!S.boardDecisions[i].files)S.boardDecisions[i].files=[];
-    const f=e.target.files[0];
-    S.boardDecisions[i].files.push({name:f.name,size:(f.size/1024).toFixed(0)+' KB',url:URL.createObjectURL(f)});
-    renderBoard();G('surveys');toast('تم رفع المرفق ✓');
-  }};inp.click();
+    var fd=new FormData();fd.append('file',f);fd.append('type','pdf');
+    toast('جارٍ رفع ملف التوصية...');
+    fetch('/mosque/api/upload_file.php',{method:'POST',headers:cmsAuthHeaders(),body:fd})
+    .then(function(r){return r.json();}).then(function(res){
+      if(res.success&&res.url){S.boardDecisions[i].files.push({name:f.name,size:(f.size/1024).toFixed(0)+' KB',url:res.url});renderBoard();G('surveys');toast('تم رفع المرفق ✓');}
+      else toast('فشل رفع المرفق: '+(res.error||'خطأ'));
+    }).catch(function(){toast('خطأ في رفع المرفق');});
+  };
+  inp.click();
 }
 
 /* ─ FOOTER ─ */
@@ -1598,7 +1652,7 @@ function loadFormEntries(formKey){
   if(!ctr) return;
   ctr.innerHTML='<p style="color:#6b7280;font-size:13px;">جارٍ التحميل...</p>';
   var url='/mosque/api/registration_entry.php'+(formKey?'?form_key='+encodeURIComponent(formKey):'');
-  fetch(url).then(function(r){return r.json();}).then(function(res){
+  fetch(url,{headers:cmsAuthHeaders()}).then(function(r){return r.json();}).then(function(res){
     if(!res.success){ctr.innerHTML='<p style="color:#dc2626">❌ '+res.error+'</p>';return;}
     var entries=res.entries||[];
     if(!entries.length){
@@ -1646,7 +1700,8 @@ function loadFormEntries(formKey){
         h+='<td style="padding:8px 12px;font-weight:700;color:#0f3d26;">'+e2.form_label+'</td>';
         for(var c2=0;c2<cols.length;c2++){
           var val=d2[cols[c2]]||'';
-          h+='<td style="padding:8px 12px;color:#374151;">'+(val?String(val).substring(0,60)+(String(val).length>60?'...':''):'<span style="color:#d1d5db">—</span>')+'</td>';
+          var rendered=val?renderEntryValue(val):'<span style="color:#d1d5db">—</span>';
+          h+='<td style="padding:8px 12px;color:#374151;max-width:240px;">'+rendered+'</td>';
         }
         /* تنسيق التاريخ */
         var dt=e2.submitted_at||'';
@@ -1665,7 +1720,7 @@ function loadFormEntries(formKey){
         h+='<span style="font-weight:700;color:#0f3d26;">'+e3.form_label+'</span>';
         h+='<span style="font-size:11px;color:#6b7280;">'+e3.submitted_at+'</span>';
         h+='</div>';
-        h+='<pre style="font-size:11px;color:#374151;margin:0;white-space:pre-wrap;">'+JSON.stringify(e3.entry_data,null,2)+'</pre>';
+        var obj=e3.entry_data||{};Object.keys(obj).forEach(function(k){h+='<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f3f4f6;"><strong>'+esc(k)+':</strong> '+renderEntryValue(obj[k])+'</div>';});
         h+='</div>';
       }
       h+='</div>';
@@ -1677,38 +1732,45 @@ function loadFormEntries(formKey){
   });
 }
 
-function submitRegForm(e, idx){
+async function submitRegForm(e, idx){
   e.preventDefault();
   var form = e.target;
   var f = (S.pages&&S.pages.register&&S.pages.register.forms) ? S.pages.register.forms[idx] : null;
   var formLabel = f ? f.label : 'نموذج';
+  var btn=form.querySelector('button[type=submit]');
+  if(btn){btn.disabled=true;btn.textContent='جارٍ الإرسال...';}
 
-  /* جمع البيانات */
-  var entry = { form: formLabel, time: new Date().toLocaleString('ar-SA'), data: {} };
-  var inputs = form.querySelectorAll('input:not([type=submit]),select,textarea');
-  var fields = (f&&f.fields) ? f.fields : [];
-  for(var i=0;i<inputs.length;i++){
-    var label = (fields[i]&&fields[i].label) ? fields[i].label : ('حقل '+(i+1));
-    if(inputs[i].type==='file') entry.data[label] = inputs[i].files.length ? inputs[i].files[0].name : '';
-    else entry.data[label] = inputs[i].value;
+  try{
+    var entry = { form: formLabel, time: new Date().toLocaleString('ar-SA'), data: {} };
+    var inputs = form.querySelectorAll('input:not([type=submit]),select,textarea');
+    var fields = (f&&f.fields) ? f.fields : [];
+    for(var i=0;i<inputs.length;i++){
+      var label = (fields[i]&&fields[i].label) ? fields[i].label : ('حقل '+(i+1));
+      if(inputs[i].type==='file'){
+        entry.data[label] = inputs[i].files.length ? await uploadEntryFile(inputs[i].files[0]) : '';
+      } else {
+        entry.data[label] = inputs[i].value;
+      }
+    }
+
+    var stKey = 'reg_entries_local';
+    var stExist = [];
+    try{ stExist = JSON.parse(localStorage.getItem(stKey)||'[]'); }catch(ex){}
+    stExist.unshift(entry);
+    localStorage.setItem(stKey, JSON.stringify(stExist.slice(0,500)));
+
+    await fetch('/mosque/api/registration_entry.php', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({form_key: formLabel, form_label: formLabel, data: entry.data, submitted_at: entry.time})
+    });
+
+    toast('تم إرسال طلبك بنجاح — سيتم التواصل معك قريباً ✓');
+    setTimeout(function(){ closeRegPage(); }, 1500);
+  }catch(err){
+    toast('تعذر إرسال النموذج أو المرفق، حاول مرة أخرى');
+    if(btn){btn.disabled=false;btn.textContent='📨 إرسال الطلب';}
   }
-
-  /* حفظ محلي فوري */
-  var stKey = 'reg_entries_local';
-  var stExist = [];
-  try{ stExist = JSON.parse(localStorage.getItem(stKey)||'[]'); }catch(ex){}
-  stExist.unshift(entry);
-  localStorage.setItem(stKey, JSON.stringify(stExist.slice(0,500)));
-
-  /* إرسال للـ API */
-  fetch('/mosque/api/registration_entry.php', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({form_key: formLabel, form_label: formLabel, data: entry.data, submitted_at: entry.time})
-  }).catch(function(){});
-
-  toast('تم إرسال طلبك بنجاح — سيتم التواصل معك قريباً ✓');
-  setTimeout(function(){ closeRegPage(); }, 1500);
 }
 
 function closeRegPage(){
@@ -3087,7 +3149,7 @@ function initMaintenance(){
   var cdEl    = document.getElementById('maint-countdown');
   if(overlay){
     overlay.classList.remove('hidden');
-    if(msgEl) msgEl.textContent = m.message||'الموقع قيد الصيانة';
+    if(msgEl) msgEl.textContent = m.message||'الموقع تحت التطوير';
     if(m.until && cdEl){
       startCountdown(new Date(m.until), cdEl, overlay);
     } else if(cdEl){
@@ -3307,7 +3369,7 @@ function pMaintenance(){
 
   /* رسالة الصيانة */
   h += '<div class="pnl-field"><label>📢 رسالة تظهر للزوار</label>';
-  h += '<textarea class="is" id="maint-msg-input" style="min-height:80px;resize:vertical;" oninput="if(!S.maintenance)S.maintenance={};S.maintenance.message=this.value;">'+( m.message||'الموقع قيد الصيانة — سنعود قريباً')+'</textarea></div>';
+  h += '<textarea class="is" id="maint-msg-input" style="min-height:80px;resize:vertical;" oninput="if(!S.maintenance)S.maintenance={};S.maintenance.message=this.value;">'+( m.message||'الموقع تحت التطوير — سنعود قريباً')+'</textarea></div>';
 
   /* التاريخ */
   h += '<div class="pnl-grid2">';
@@ -3324,7 +3386,7 @@ function pMaintenance(){
   h += '<div style="background:linear-gradient(135deg,#0f3d26,#1a5c38);border-radius:12px;padding:36px 20px;text-align:center;color:#fff;">';
   h += '<div style="font-size:48px;margin-bottom:12px;">🔧</div>';
   h += '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">الموقع قيد الصيانة</div>';
-  h += '<div style="font-size:14px;color:rgba(255,255,255,.8);margin-bottom:20px;">'+(m.message||'الموقع قيد الصيانة — سنعود قريباً')+'</div>';
+  h += '<div style="font-size:14px;color:rgba(255,255,255,.8);margin-bottom:20px;">'+(m.message||'الموقع تحت التطوير — سنعود قريباً')+'</div>';
   h += '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">';
   var labels=['شهر','يوم','ساعة','دقيقة','ثانية'];
   for(var li=0;li<5;li++){

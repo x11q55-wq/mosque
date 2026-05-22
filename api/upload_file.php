@@ -1,7 +1,7 @@
 <?php
 /**
  * api/upload_file.php
- * رفع ملف PDF أو صورة للمشرفين فقط وإعادة رابطه.
+ * رفع ملف PDF أو صورة مع حماية الصلاحيات والحدود.
  */
 require_once dirname(__DIR__) . '/config/database.php';
 
@@ -36,6 +36,22 @@ function uploadTokenUser(string $token): ?array {
     } catch (Throwable $e) { return null; }
 }
 
+function uploadRateLimit(string $action, int $limit, int $window): bool {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $key = sys_get_temp_dir() . '/mosque_upload_' . $action . '_' . md5($ip) . '.tmp';
+    $now = time(); $hits = [];
+    if (file_exists($key)) {
+        $hits = array_filter(array_map('intval', explode(',', (string)file_get_contents($key))), function($t) use ($now, $window) { return $t > $now - $window; });
+    }
+    if (count($hits) >= $limit) return false;
+    $hits[] = $now; @file_put_contents($key, implode(',', $hits), LOCK_EX);
+    return true;
+}
+
+function isPublicEntryUpload(): bool {
+    return ($_POST['scope'] ?? '') === 'entry';
+}
+
 function uploadIsAuthorized(): bool {
     if (session_status() === PHP_SESSION_NONE) session_start();
     if (!empty($_SESSION['admin_id']) || !empty($_SESSION['cms_admin_id'])) return true;
@@ -48,14 +64,22 @@ function uploadIsAuthorized(): bool {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') uploadJson(['success'=>false,'error'=>'POST only'], 405);
-if (!uploadIsAuthorized()) uploadJson(['success'=>false,'error'=>'غير مصرح — يجب تسجيل الدخول'], 403);
+$publicEntryUpload = isPublicEntryUpload();
+if (!$publicEntryUpload && !uploadIsAuthorized()) uploadJson(['success'=>false,'error'=>'غير مصرح — يجب تسجيل الدخول'], 403);
+if ($publicEntryUpload && !uploadRateLimit('entry', 20, 3600)) uploadJson(['success'=>false,'error'=>'تجاوزت حد رفع المرفقات، حاول لاحقاً'], 429);
 if (empty($_FILES['file']) || !is_uploaded_file($_FILES['file']['tmp_name'])) uploadJson(['success'=>false,'error'=>'no file'], 400);
 
 $file = $_FILES['file'];
 if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) uploadJson(['success'=>false,'error'=>'فشل الرفع'], 400);
-if (($file['size'] ?? 0) > 10 * 1024 * 1024) uploadJson(['success'=>false,'error'=>'حجم الملف يتجاوز 10MB'], 413);
+$maxSize = $publicEntryUpload ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+if (($file['size'] ?? 0) > $maxSize) uploadJson(['success'=>false,'error'=>'حجم الملف يتجاوز الحد المسموح'], 413);
 
-$allowed = [
+$allowed = $publicEntryUpload ? [
+    'application/pdf' => 'pdf',
+    'image/jpeg' => 'jpg',
+    'image/png' => 'png',
+    'image/webp' => 'webp',
+] : [
     'application/pdf' => 'pdf',
     'image/jpeg' => 'jpg',
     'image/png' => 'png',
@@ -72,7 +96,8 @@ if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) uploadJson(['success'
 $original = pathinfo($file['name'] ?? 'file', PATHINFO_FILENAME);
 $original = trim(preg_replace('/[^a-zA-Z0-9._-]/', '_', $original), '._-');
 $original = $original !== '' ? substr($original, 0, 80) : 'file';
-$name = time() . '_' . bin2hex(random_bytes(8)) . '_' . $original . '.' . $allowed[$mime];
+$prefix = $publicEntryUpload ? 'entry' : 'cms';
+$name = $prefix . '_' . time() . '_' . bin2hex(random_bytes(8)) . '_' . $original . '.' . $allowed[$mime];
 $path = $uploadDir . $name;
 
 if (!move_uploaded_file($file['tmp_name'], $path)) uploadJson(['success'=>false,'error'=>'فشل نقل الملف'], 500);

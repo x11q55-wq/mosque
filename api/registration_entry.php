@@ -22,7 +22,7 @@ if (in_array($origin, $allowed_origins)) {
 } else {
     header('Access-Control-Allow-Origin: https://mnassat.com');
 }
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, X-CMS-Token, Authorization');
 header('Access-Control-Allow-Credentials: true');
 
@@ -191,6 +191,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'خطأ في حفظ البيانات']);
+    }
+    exit;
+}
+
+// ════════════════════════════════════════════════════════════
+// DELETE: حذف إدخال كامل أو حذف قيمة حقل محدد — للمشرف فقط
+// ════════════════════════════════════════════════════════════
+if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    if (!isAdminUser()) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'غير مصرح']);
+        exit;
+    }
+    $body = json_decode(file_get_contents('php://input'), true) ?? [];
+    $id = (int)($body['id'] ?? 0);
+    $field = trim((string)($body['field'] ?? ''));
+    if ($id < 1) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'رقم الإدخال مطلوب']);
+        exit;
+    }
+    try {
+        if ($field !== '') {
+            $row = dbQueryOne("SELECT entry_data FROM form_entries WHERE id=? LIMIT 1", [$id]);
+            if (!$row) { echo json_encode(['success'=>false,'error'=>'الإدخال غير موجود']); exit; }
+            $data = json_decode($row['entry_data'] ?? '{}', true) ?: [];
+            unset($data[$field]);
+            $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            dbUpdate("UPDATE form_entries SET entry_data=?, data=? WHERE id=?", [$json, $json, $id]);
+        } else {
+            dbUpdate("DELETE FROM form_entries WHERE id=?", [$id]);
+        }
+        echo json_encode(['success'=>true]);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['success'=>false,'error'=>'تعذر الحذف']);
     }
     exit;
 }
