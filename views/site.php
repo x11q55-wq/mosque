@@ -119,15 +119,18 @@ if (!empty($form_slug)) {
     }
 }
 
-// مسار ملف HTML
-$htmlFile = BASE_PATH . '/mosque_full.html';
+// مسار قالب HTML. النسخة المقسمة تستخدم index.html، مع إبقاء الملف الكامل كخطة رجوع.
+$htmlFile = BASE_PATH . '/index.html';
+if (!file_exists($htmlFile)) {
+    $htmlFile = BASE_PATH . '/mosque_full.html';
+}
 
 if (!file_exists($htmlFile)) {
     http_response_code(503);
     echo '<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>خطأ</title></head>
     <body style="font-family:Arial;text-align:center;padding:80px">
-    <h2>⚠ ملف mosque_full.html غير موجود</h2>
-    <p>المسار المتوقع: <code>' . htmlspecialchars(BASE_PATH) . '/mosque_full.html</code></p>
+    <h2>⚠ ملف قالب الموقع غير موجود</h2>
+    <p>المسار المتوقع: <code>' . htmlspecialchars(BASE_PATH) . '/index.html</code></p>
     </body></html>';
     exit;
 }
