@@ -91,6 +91,14 @@ RewriteBase /mosque/
     ExpiresByType image/svg+xml "access plus 1 month"
     ExpiresByType font/woff2 "access plus 1 year"
 </IfModule>
+# منع كاش HTML حتى تظهر تحديثات ملفات CSS/JS ذات رقم الإصدار فوراً
+<IfModule mod_headers.c>
+    <FilesMatch "^(index\.php|index\.html)$">
+        Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header always set Pragma "no-cache"
+        Header always set Expires "0"
+    </FilesMatch>
+</IfModule>
 
 # ════════════════════════════════════════════════════════════
 #  إعادة توجيه جميع الطلبات لـ index.php
