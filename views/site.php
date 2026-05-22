@@ -63,8 +63,8 @@ p{font-size:16px;color:rgba(255,255,255,.85);line-height:1.8;margin-bottom:28px}
 <body>
 <div class="box">
   <div class="brand">
-    <img src="/mosque/assets/logo.jpg" alt="شعار جمعية العناية بالمساجد">
-    <div class="brand-name">جمعية العناية بالمساجد</div>
+    <img src="/mosque/assets/logo.jpg" alt="شعار جمعية رفد المساجد للعناية بالمساجد">
+    <div class="brand-name">جمعية رفد المساجد للعناية بالمساجد</div>
     <div class="brand-sub">KSA MOSQUE CARE</div>
   </div>
   <div class="icon">🔧</div>
@@ -104,7 +104,7 @@ HTML;
 $S = getSiteData();
 
 // ══ OG Tags ديناميكية حسب النموذج المطلوب ══
-$og_title       = getSetting('org_name', 'جمعية العناية بالمساجد');
+$og_title       = getSetting('org_name', 'جمعية رفد المساجد للعناية بالمساجد');
 $og_description = getSetting('org_about', 'جمعية خيرية متخصصة في صيانة وتطوير المساجد عبر المملكة العربية السعودية');
 $og_image       = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'mnassat.com') . '/mosque/og-image.jpg';
 $og_url         = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'mnassat.com') . '/mosque/';
@@ -118,8 +118,8 @@ if (!empty($form_slug)) {
         $slug = str_replace(' ', '-', $form['label'] ?? '');
         if ($slug === $form_slug || ($form['label'] ?? '') === $form_slug) {
             $icon = $form['icon'] ?? '📋';
-            $og_title       = $icon . ' ' . ($form['label'] ?? '') . ' — جمعية العناية بالمساجد';
-            $og_description = $form['description'] ?? ('نموذج ' . ($form['label'] ?? '') . ' — جمعية العناية بالمساجد');
+            $og_title       = $icon . ' ' . ($form['label'] ?? '') . ' — جمعية رفد المساجد للعناية بالمساجد';
+            $og_description = $form['description'] ?? ('نموذج ' . ($form['label'] ?? '') . ' — جمعية رفد المساجد للعناية بالمساجد');
             $og_url         = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'mnassat.com') . '/mosque/?form=' . urlencode($form_slug);
             /* توليد صورة OG ديناميكية لهذا النموذج */
             $og_image = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'mnassat.com') . '/mosque/form-og.php?form=' . urlencode($form_slug) . '&icon=' . urlencode($icon) . '&label=' . urlencode($form['label'] ?? '');

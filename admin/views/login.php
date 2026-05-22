@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>دخول لوحة التحكم — جمعية العناية بالمساجد</title>
+<title>دخول لوحة التحكم — جمعية رفد المساجد للعناية بالمساجد</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -70,7 +70,7 @@ body{font-family:'Tajawal',Arial,sans-serif;background:#f5f1ea;min-height:100vh;
 <div class="card">
   <div class="logo">
     <div class="logo-icon">🕌</div>
-    <h1>جمعية العناية بالمساجد</h1>
+    <h1>جمعية رفد المساجد للعناية بالمساجد</h1>
     <p>لوحة تحكم المشرفين</p>
   </div>
 

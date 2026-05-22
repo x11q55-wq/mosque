@@ -310,7 +310,9 @@ async function submitSurvey(){
   var svObj=(S.surveys||[]).find(function(x){return String(x.id)===String(svId);})||{};
   var svTitle=svObj.title||'استطلاع';
   var answers={};
+  var missing=[];
   var qBlocks=document.querySelectorAll('#m-body .q-block');
+  qBlocks.forEach(function(block){block.classList.remove('q-error');var old=block.querySelector('.q-error-msg');if(old)old.remove();});
   var submitBtn=document.querySelector('#m-body .submit-btn');
   if(submitBtn){submitBtn.disabled=true;submitBtn.textContent='جارٍ الإرسال...';}
   try{
@@ -328,7 +330,22 @@ async function submitSurvey(){
         var fi=block.querySelector('input[type=file]');
         if(fi&&fi.files.length) ans=await uploadEntryFile(fi.files[0]);
       }
-      answers[qText]=ans;
+      var isEmpty = (ans==='' || ans==null || (typeof ans==='string' && ans.trim()===''));
+      if(q && q.required && isEmpty){
+        missing.push(block);
+      } else {
+        answers[qText]=ans;
+      }
+    }
+    if(missing.length){
+      missing.forEach(function(block){
+        block.classList.add('q-error');
+        var msg=document.createElement('div');msg.className='q-error-msg';msg.textContent='هذا السؤال إلزامي';block.appendChild(msg);
+      });
+      toast('نأمل إكمال الاستبيان');
+      var first=missing[0]; if(first&&first.scrollIntoView) first.scrollIntoView({behavior:'smooth',block:'center'});
+      if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='إرسال الاستطلاع ✓';}
+      return;
     }
     await fetch('/mosque/api/registration_entry.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_key:'survey_'+svId,form_label:svTitle,data:answers})});
     if(S.surveyResults){S.surveyResults.total=(S.surveyResults.total||0)+1;}
@@ -380,7 +397,8 @@ function loadSurveyResults(svId){
         entries.forEach(function(e){var a=(e.entry_data||{})[qt];if(a){h+='<div style="padding:8px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;align-items:flex-start;"><div style="flex:1;color:#374151;line-height:1.7;">'+renderEntryValue(a)+'</div>'+((typeof IS_ADMIN!=='undefined'&&IS_ADMIN)||getCmsToken()?'<button class="delbtn" title="حذف هذه الإجابة" onclick="deleteSurveyAnswer('+e.id+',\''+encodeURIComponent(qt)+'\',\''+svId+'\')">🗑</button>':'')+'</div>';}});
         h+='</div>';
       } else {
-        so.forEach(function(o){var c=st.opts[o]||0;var p=st.total>0?Math.round(c/st.total*100):0;h+='<div class="bar-row"><div class="bar-lbl">'+esc(o)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+p+'%"></div></div><div class="bar-pct">'+p+'%</div></div>';});
+        var colors=['#0f3d26','#c9a227','#22c55e','#3b82f6','#f97316','#e24b4a','#8b5cf6','#14b8a6'];
+        so.forEach(function(o,i){var c=st.opts[o]||0;var p=st.total>0?Math.round(c/st.total*100):0;var col=colors[i%colors.length];h+='<div class="bar-row"><div class="bar-lbl">'+esc(o)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+p+'%;background:'+col+'"></div></div><div class="bar-pct" style="color:'+col+'">'+p+'%</div></div>';});
         if(st.total>0){var top=Object.keys(st.opts).sort(function(a,b){return st.opts[b]-st.opts[a];})[0];var tp=Math.round((st.opts[top]||0)/st.total*100);h+='<div class="insight"><div class="insight-title">💡 التحليل</div><div class="insight-txt">الخيار الأعلى: '+esc(top)+' بنسبة '+tp+'%</div></div>';}
       }
       h+='</div>';
@@ -554,7 +572,7 @@ function buildRegisterPage(){
   <div class="section-hd" style="margin-bottom:32px;">
     <div class="section-tag">المشاركة المجتمعية</div>
     <div class="section-title">${reg.title||'نماذج التسجيل'}</div>
-    <div class="section-sub">انضم إلى عائلة جمعية العناية بالمساجد — اختر النوع المناسب لك</div>
+    <div class="section-sub">انضم إلى عائلة جمعية رفد المساجد للعناية بالمساجد — اختر النوع المناسب لك</div>
   </div>
   <div style="display:flex;gap:8px;margin-bottom:24px;background:var(--BG2);padding:6px;border-radius:14px;flex-wrap:wrap;">
     ${forms.map((f,i)=>`<button id="rt-${i}-btn" onclick="switchRegDyn(${i},${forms.length})" style="flex:1;min-width:100px;padding:12px;border-radius:10px;border:none;${i===0?'background:var(--PL);color:#fff;font-weight:700;':'background:none;color:var(--TXM);'}font-size:13px;cursor:pointer;font-family:'Tajawal',sans-serif;">${f.icon||'📋'} ${f.label}</button>`).join('')}
@@ -1793,7 +1811,7 @@ function closeRegPage(){
 function openWhatsApp(){
   if(!S.wa||!S.wa.show){return;}
   const phone=(S.wa.phone||'').replace(/[^0-9]/g,'');
-  const url='https://wa.me/'+phone+'?text='+encodeURIComponent('السلام عليكم، أود التواصل مع جمعية العناية بالمساجد');
+  const url='https://wa.me/'+phone+'?text='+encodeURIComponent('السلام عليكم، أود التواصل مع جمعية رفد المساجد للعناية بالمساجد');
   window.open(url,'_blank');
 }
 function renderWA(){
@@ -1928,7 +1946,7 @@ function _renderSt(tab){
 
   if(_cmsTab==='overview'){
     var av=S.achiev&&S.achiev[0]?S.achiev[0].val:'0';
-    ct.innerHTML='<div class="adm-page-hdr"><div><div class="adm-page-title">📊 لوحة المعلومات</div><div class="adm-page-sub">جمعية العناية بالمساجد</div></div></div>'
+    ct.innerHTML='<div class="adm-page-hdr"><div><div class="adm-page-title">📊 لوحة المعلومات</div><div class="adm-page-sub">جمعية رفد المساجد للعناية بالمساجد</div></div></div>'
       +'<div class="adm-stats-row">'
       +'<div class="adm-stat-card"><div class="adm-stat-icon">🕌</div><div class="adm-stat-val">'+av+'</div><div class="adm-stat-lbl">مساجد</div></div>'
       +'<div class="adm-stat-card"><div class="adm-stat-icon">📰</div><div class="adm-stat-val">'+(S.news?S.news.length:0)+'</div><div class="adm-stat-lbl">أخبار</div></div>'
@@ -3677,13 +3695,11 @@ function collectEntryFiles(value, field, entry, survey){
 function loadSurveyAttachmentsPanel(){
   var box=document.getElementById('cms-survey-attachments-body');
   if(!box) return;
-  var token=getCmsToken();
-  if(!token){box.innerHTML='<div class="empty-state">سجل الدخول أولاً لعرض مرفقات الزوار.</div>';return;}
   var surveys=S.surveys||[];
   if(!surveys.length){box.innerHTML='<div class="empty-state">لا توجد استطلاعات.</div>';return;}
   box.innerHTML='<div class="empty-state">جارٍ تحميل المرفقات...</div>';
   Promise.all(surveys.map(function(sv){
-    return fetch('/mosque/api/registration_entry.php?form_key='+encodeURIComponent('survey_'+sv.id)+'&per_page=9999',{headers:cmsAuthHeaders()})
+    return fetch('/mosque/api/registration_entry.php?form_key='+encodeURIComponent('survey_'+sv.id)+'&per_page=9999',{headers:cmsAuthHeaders(),credentials:'same-origin'})
       .then(function(r){return r.json();}).then(function(res){return {sv:sv,entries:res.entries||[]};}).catch(function(){return {sv:sv,entries:[]};});
   })).then(function(groups){
     var h=''; var total=0;

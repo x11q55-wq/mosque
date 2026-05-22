@@ -1,6 +1,6 @@
 /* ════════════ STATE ════════════ */
 const S = {
-  nav:{orgName:'جمعية العناية بالمساجد',orgSub:'KSA Mosque Care Foundation',donBtn:'تبرّع الآن',donUrl:'#',
+  nav:{orgName:'جمعية رفد المساجد للعناية بالمساجد',orgSub:'KSA Mosque Care Foundation',donBtn:'تبرّع الآن',donUrl:'#',
     items:[
       {label:'الرئيسية',url:'home',hasDrop:false,dropItems:[]},
       {label:'من نحن',url:'about',hasDrop:true,dropItems:[{label:'الرؤية والرسالة',icon:'◈',type:'text'},{label:'مجلس الإدارة',icon:'👥',type:'text'},{label:'الهيكل التنظيمي',icon:'📋',type:'pdf'}]},
@@ -91,7 +91,7 @@ const S = {
     ]},
   analysisReports:[],
   boardDecisions:[],
-  footer:{about:'جمعية العناية بالمساجد جمعية خيرية غير ربحية مرخصة من وزارة الموارد البشرية.',phone:'920001234',email:'info@mosqueksa.org',address:'الرياض، المملكة العربية السعودية',mapUrl:'https://maps.google.com/?q=24.7136,46.6753',mapLabel:'الرياض · حي العليا',
+  footer:{about:'جمعية رفد المساجد للعناية بالمساجد جمعية خيرية غير ربحية مرخصة من وزارة الموارد البشرية.',phone:'920001234',email:'info@mosqueksa.org',address:'الرياض، المملكة العربية السعودية',mapUrl:'https://maps.google.com/?q=24.7136,46.6753',mapLabel:'الرياض · حي العليا',
     links:[{label:'الرئيسية',url:'home'},{label:'المشاريع',url:'projects'},{label:'الاستطلاعات',url:'surveys-sec'},{label:'الأخبار',url:'news'},{label:'الوثائق والتقارير',url:'#',page:'docs'},{label:'الشكاوى والمقترحات',url:'#',page:'complaints'},{label:'نماذج التسجيل',url:'#',page:'register'},{label:'تواصل معنا',url:'p-ft-sec'}],
     socials:[{icon:'𝕏',label:'تويتر',url:'#'},{icon:'📷',label:'إنستغرام',url:'#'},{icon:'▶',label:'يوتيوب',url:'#'},{icon:'💬',label:'واتساب',url:'#'},{icon:'✉',label:'بريد',url:'#'}]},
   hiddenSections:new Set(),

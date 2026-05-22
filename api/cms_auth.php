@@ -91,7 +91,7 @@ function sendResetEmail($email, $name, $token){
                . "اضغط على الرابط التالي لإعادة التعيين (صالح لمدة ساعة):\n\n"
                . $resetLink . "\n\n"
                . "إذا لم تطلب هذا، تجاهل هذا البريد.\n\n"
-               . "جمعية العناية بالمساجد";
+               . "جمعية رفد المساجد للعناية بالمساجد";
     $headers   = "From: noreply@mnassat.com\r\nContent-Type: text/plain; charset=UTF-8\r\nX-Mailer: PHP";
     return mail($email, '=?UTF-8?B?'.base64_encode($subject).'?=', $message, $headers);
 }
@@ -198,7 +198,7 @@ switch($action){
                ->execute([$name,$email,$hash,$role,$tabs]);
             /* إرسال بيانات الدخول للمستخدم الجديد */
             $subject = 'بيانات دخول لوحة التحكم';
-            $msg = "مرحباً $name،\n\nتم إنشاء حسابك في لوحة التحكم.\n\nالبريد: $email\nكلمة المرور: $password\n\nhttps://mnassat.com/mosque/\n\nيُرجى تغيير كلمة المرور عند أول دخول.\n\nجمعية العناية بالمساجد";
+            $msg = "مرحباً $name،\n\nتم إنشاء حسابك في لوحة التحكم.\n\nالبريد: $email\nكلمة المرور: $password\n\nhttps://mnassat.com/mosque/\n\nيُرجى تغيير كلمة المرور عند أول دخول.\n\nجمعية رفد المساجد للعناية بالمساجد";
             mail($email,'=?UTF-8?B?'.base64_encode($subject).'?=',$msg,"From: noreply@mnassat.com\r\nContent-Type: text/plain; charset=UTF-8");
             echo json_encode(['success'=>true]);
         } catch(Exception $e){

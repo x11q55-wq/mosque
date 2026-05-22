@@ -49,7 +49,7 @@ $svg = <<<SVG
 
   <!-- نص ثانوي -->
   <text x="600" y="500" font-size="28" fill="rgba(255,255,255,0.7)"
-        text-anchor="middle" font-family="Arial, sans-serif" direction="rtl">جمعية العناية بالمساجد</text>
+        text-anchor="middle" font-family="Arial, sans-serif" direction="rtl">جمعية رفد المساجد للعناية بالمساجد</text>
 
   <!-- منظمة -->
   <text x="600" y="540" font-size="20" fill="rgba(201,162,39,0.8)"
