@@ -35,8 +35,24 @@ function newsDateValue(n){
 }
 function sortedNewsItems(){return (S.news||[]).map(function(n,i){return {n:n,idx:i,t:newsDateValue(n)};}).sort(function(a,b){return (b.t-a.t)||(b.idx-a.idx);});}
 
+const BRAND_NAME = 'جمعية رفد المساجد للعناية بالمساجد';
+const OLD_BRAND_NAME = ['جمعية العناية',' بالمساجد'].join('');
+function normalizeBrandValue(v){
+  if(typeof v==='string') return v.split(OLD_BRAND_NAME).join(BRAND_NAME);
+  if(Array.isArray(v)) return v.map(normalizeBrandValue);
+  if(v&&typeof v==='object'){Object.keys(v).forEach(function(k){v[k]=normalizeBrandValue(v[k]);});}
+  return v;
+}
+function normalizeBrandState(){
+  normalizeBrandValue(S);
+  if(!S.nav) S.nav={};
+  S.nav.orgName=BRAND_NAME;
+  if(S.footer) S.footer.about=normalizeBrandValue(S.footer.about||'');
+}
+
 /* ════════════ RENDER ════════════ */
 function renderAll(){
+  normalizeBrandState();
   renderNav(); renderHeroStats(); renderHeroCard();
   renderAchiev(); renderStats(); renderProjects();
   renderPartners(); renderNews(); renderEvents();
@@ -2421,6 +2437,7 @@ function loadStateFromServer(){
   .then(function(r){return r.json();})
   .then(function(res){
     if(res&&res.success&&res.data){var d=res.data,k=Object.keys(d);for(var i=0;i<k.length;i++) if(d[k[i]]!=null) S[k[i]]=d[k[i]];}
+    normalizeBrandState();
     if(typeof renderAll==='function') renderAll();
     if(typeof renderWA==='function') renderWA();
     if(typeof renderSurveyList==='function') renderSurveyList();
